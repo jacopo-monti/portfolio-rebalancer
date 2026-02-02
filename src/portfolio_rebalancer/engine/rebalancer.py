@@ -1,6 +1,6 @@
 """Core rebalancing engine implementing the deterministic 8-step algorithm."""
 
-from typing import Optional
+from typing import Optional, Tuple
 
 from portfolio_rebalancer.models.asset import Asset
 from portfolio_rebalancer.models.portfolio import Portfolio
@@ -12,10 +12,10 @@ class RebalancingEngine:
     """Core engine for portfolio rebalancing.
     
     Implements a deterministic 8-step algorithm:
-    1. Compute current state (Vᵢ, ŵᵢ, V_tot)
-    2. Compute deviations from target (Δwᵢ)
-    3. Compute target values (ΔVᵢ)
-    4. Convert to quantities (ΔQᵢ)
+    1. Compute current state (Vi, wi, V_tot)
+    2. Compute deviations from target (Delta_wi)
+    3. Compute target values (Delta_Vi)
+    4. Convert to quantities (Delta_Qi)
     5. Compute cash flow with taxation
     6. Close cash flow (proportional scaling)
     7. Simulate post-rebalancing state
@@ -94,8 +94,8 @@ class RebalancingEngine:
         """Step 1: Compute current value and weights.
         
         For each asset i:
-            Vᵢ = Qᵢ × Pᵢ
-            ŵᵢ = Vᵢ / V_tot
+            Vi = Qi x Pi
+            wi = Vi / V_tot
         """
         # Compute values
         for asset in portfolio.assets:
@@ -116,12 +116,12 @@ class RebalancingEngine:
         """Step 2: Compute deviations from target weights.
         
         For each asset i:
-            Δwᵢ = ŵᵢ − wᵢ
+            Delta_wi = wi - w_target_i
         
         Interpretation:
-            Δwᵢ > 0 → overweight (sell)
-            Δwᵢ < 0 → underweight (buy)
-            Δwᵢ = 0 → at target
+            Delta_wi > 0 -> overweight (sell)
+            Delta_wi < 0 -> underweight (buy)
+            Delta_wi = 0 -> at target
         """
         for asset in portfolio.assets:
             asset.deviation = asset.current_weight - asset.target_weight
@@ -130,7 +130,7 @@ class RebalancingEngine:
         """Step 3: Compute target value changes in euros.
         
         For each asset i:
-            ΔVᵢ = (wᵢ × V_tot) − Vᵢ
+            Delta_Vi = (w_target_i x V_tot) - Vi
         
         This converts percentage deviations to euro values.
         """
@@ -142,26 +142,26 @@ class RebalancingEngine:
         """Step 4: Convert euro values to quantities.
         
         For each asset i:
-            ΔQᵢ = ΔVᵢ / Pᵢ
+            Delta_Qi = Delta_Vi / Pi
         
         Interpretation:
-            ΔQᵢ > 0 → buy ΔQᵢ shares
-            ΔQᵢ < 0 → sell |ΔQᵢ| shares
+            Delta_Qi > 0 -> buy Delta_Qi shares
+            Delta_Qi < 0 -> sell |Delta_Qi| shares
         """
         for asset in portfolio.assets:
             asset.delta_quantity = asset.delta_value / asset.price
     
-    def _compute_cash_flow(self, portfolio: Portfolio) -> tuple[float, float, float]:
+    def _compute_cash_flow(self, portfolio: Portfolio) -> Tuple[float, float, float]:
         """Step 5: Compute cash flow with taxation.
         
-        For sales (ΔQ < 0):
-            cash_in = |ΔQ| × P × (1 − T × max(0, P − PMC))
+        For sales (Delta_Q < 0):
+            cash_in = |Delta_Q| x P x (1 - T x max(0, P - PMC))
         
-        For purchases (ΔQ > 0):
-            cash_out = ΔQ × P
+        For purchases (Delta_Q > 0):
+            cash_out = Delta_Q x P
         
         Cash flow:
-            CF = Σ cash_in − Σ cash_out
+            CF = Sum(cash_in) - Sum(cash_out)
         
         Returns:
             Tuple of (total_cash_in, total_cash_out, cash_flow)
@@ -183,10 +183,10 @@ class RebalancingEngine:
     def _close_cash_flow(self, portfolio: Portfolio, cash_flow: float, total_cash_out: float) -> None:
         """Step 6: Close cash flow using proportional scaling.
         
-        If CF ≠ 0, scale purchases proportionally:
-            ΔQᵢ,adjusted = ΔQᵢ × (1 + CF / Σ cash_out)    for ΔQᵢ > 0
+        If CF != 0, scale purchases proportionally:
+            Delta_Qi_adjusted = Delta_Qi x (1 + CF / Sum(cash_out))    for Delta_Qi > 0
         
-        This ensures CF ≈ 0 without requiring external cash injection/withdrawal.
+        This ensures CF ~= 0 without requiring external cash injection/withdrawal.
         
         Note: We use proportional scaling (not optimization) for simplicity and
         determinism. This is a deliberate design choice.
@@ -214,9 +214,9 @@ class RebalancingEngine:
         """Step 7: Simulate portfolio state after rebalancing.
         
         For each asset i:
-            Qᵢ,new = Qᵢ + ΔQᵢ
-            Vᵢ,new = Qᵢ,new × Pᵢ
-            ŵᵢ,new = Vᵢ,new / V_tot,new
+            Qi_new = Qi + Delta_Qi
+            Vi_new = Qi_new x Pi
+            wi_new = Vi_new / V_tot_new
         
         Returns:
             Total portfolio value after rebalancing
@@ -233,7 +233,7 @@ class RebalancingEngine:
     def _apply_rounding(self, portfolio: Portfolio, policy: RoundingPolicy) -> None:
         """Step 8: Apply rounding to quantity changes.
         
-        Rounds ΔQᵢ to integer values according to policy:
+        Rounds Delta_Qi to integer values according to policy:
         - FLOOR: round down
         - ROUND: round to nearest integer
         - CEIL: round up
