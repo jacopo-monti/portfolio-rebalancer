@@ -7,7 +7,7 @@ from typing import List
 try:
     import openpyxl
     from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from openpyxl.utils import get_column_letter
 except ImportError:
     raise ImportError(
@@ -23,14 +23,18 @@ class ExcelIO:
     """Handler for reading and writing portfolio data from/to Excel files.
     
     Excel file format for input:
+    - Row 1: "Cash Available" label in A1, value in B1
+    - Row 2: Empty (separator)
+    - Row 3: Headers
+    - Row 4+: Asset data
+    
+    Columns:
     - Column A: Symbol (ticker)
     - Column B: Quantity (shares owned)
     - Column C: Price (current price)
     - Column D: Avg Cost (average purchase price)
     - Column E: Tax Rate (decimal, e.g., 0.26)
     - Column F: Target Weight (decimal, e.g., 0.60)
-    
-    First row should contain headers.
     """
     
     def read_portfolio(self, filepath: str, sheet_name: str = None) -> Portfolio:
@@ -58,10 +62,21 @@ class ExcelIO:
         else:
             sheet = workbook.active
         
+        # Read cash available from B1 (A1 should be "Cash Available")
+        cash_available = 0.0
+        if sheet['A1'].value and 'cash' in str(sheet['A1'].value).lower():
+            try:
+                cash_value = sheet['B1'].value
+                if cash_value is not None:
+                    cash_available = float(cash_value)
+            except (ValueError, TypeError):
+                # If cash_available is not a valid number, default to 0.0
+                pass
+        
         assets = []
         
-        # Skip header row (row 1)
-        for row_idx, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=2):
+        # Skip header row (row 3) and cash info rows (1-2)
+        for row_idx, row in enumerate(sheet.iter_rows(min_row=4, values_only=True), start=4):
             # Skip empty rows
             if not any(row):
                 continue
@@ -101,7 +116,7 @@ class ExcelIO:
         if not assets:
             raise ValueError("No assets found in Excel file")
         
-        portfolio = Portfolio(assets=assets)
+        portfolio = Portfolio(assets=assets, cash_available=cash_available)
         return portfolio
     
     def _adjust_column_widths(self, sheet) -> None:
@@ -128,7 +143,7 @@ class ExcelIO:
             
             if column_letter:
                 adjusted_width = min(max_length + 2, 50)
-                sheet.column_dimensions[column_letter].width = max(adjusted_width, 10)
+                sheet.column_dimensions[column_letter].width = max(adjusted_width, 12)
     
     def write_result(
         self, result: RebalancingResult, filepath: str, sheet_name: str = "Rebalancing"
@@ -163,6 +178,13 @@ class ExcelIO:
         sheet[f"A{row}"].font = section_font
         
         row += 1
+        cash_available = result.metadata.get("cash_available", 0.0)
+        if cash_available > 0:
+            sheet[f"A{row}"] = "Cash Available to Invest:"
+            sheet[f"B{row}"] = cash_available
+            sheet[f"B{row}"].number_format = '€#,##0.00'
+            row += 1
+        
         sheet[f"A{row}"] = "Total Portfolio Value Before:"
         sheet[f"B{row}"] = result.total_value_before
         sheet[f"B{row}"].number_format = '€#,##0.00'
@@ -173,17 +195,25 @@ class ExcelIO:
         sheet[f"B{row}"].number_format = '€#,##0.00'
         
         row += 1
-        sheet[f"A{row}"] = "Cash Flow:"
+        sheet[f"A{row}"] = "Cash Flow Required:"
         sheet[f"B{row}"] = result.cash_flow
         sheet[f"B{row}"].number_format = '€#,##0.00'
+        # Color code: green if close to target, red if far
+        target_cf = -cash_available
+        if abs(result.cash_flow - target_cf) < 1.0:
+            sheet[f"B{row}"].font = Font(color="006100", bold=True)
+        elif abs(result.cash_flow - target_cf) < 10.0:
+            sheet[f"B{row}"].font = Font(color="9C6500")
+        else:
+            sheet[f"B{row}"].font = Font(color="9C0006")
         
         row += 1
-        sheet[f"A{row}"] = "Total Cash In:"
+        sheet[f"A{row}"] = "Total Cash In (from sales):"
         sheet[f"B{row}"] = result.total_cash_in
         sheet[f"B{row}"].number_format = '€#,##0.00'
         
         row += 1
-        sheet[f"A{row}"] = "Total Cash Out:"
+        sheet[f"A{row}"] = "Total Cash Out (for purchases):"
         sheet[f"B{row}"] = result.total_cash_out
         sheet[f"B{row}"].number_format = '€#,##0.00'
         
@@ -345,18 +375,28 @@ class ExcelIO:
         header_font = Font(bold=True, size=11, color="FFFFFF")
         header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
         header_alignment = Alignment(horizontal="center", vertical="center")
+        label_font = Font(bold=True, size=11)
         
-        # Headers
+        # Cash Available section
+        sheet["A1"] = "Cash Available to Invest:"
+        sheet["A1"].font = label_font
+        sheet["B1"] = portfolio.cash_available
+        sheet["B1"].number_format = '€#,##0.00'
+        
+        # Empty row for separation
+        # Row 2 is empty
+        
+        # Headers in row 3
         headers = ["Symbol", "Quantity", "Price", "Avg Cost", "Tax Rate", "Target Weight"]
         for col_idx, header in enumerate(headers, start=1):
-            cell = sheet.cell(row=1, column=col_idx)
+            cell = sheet.cell(row=3, column=col_idx)
             cell.value = header
             cell.font = header_font
             cell.fill = header_fill
             cell.alignment = header_alignment
         
-        # Asset rows
-        for row_idx, asset in enumerate(portfolio.assets, start=2):
+        # Asset rows starting from row 4
+        for row_idx, asset in enumerate(portfolio.assets, start=4):
             sheet[f"A{row_idx}"] = asset.symbol
             sheet[f"B{row_idx}"] = asset.quantity
             sheet[f"B{row_idx}"].number_format = '0.00'
