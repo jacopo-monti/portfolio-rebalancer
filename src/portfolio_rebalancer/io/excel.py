@@ -150,6 +150,7 @@ class ExcelIO:
         header_alignment = Alignment(horizontal="center", vertical="center")
         
         title_font = Font(bold=True, size=14)
+        section_font = Font(bold=True, size=12)
         
         # Title
         sheet["A1"] = "Portfolio Rebalancing Results"
@@ -159,7 +160,7 @@ class ExcelIO:
         # Summary section
         row = 3
         sheet[f"A{row}"] = "Summary"
-        sheet[f"A{row}"].font = Font(bold=True, size=12)
+        sheet[f"A{row}"].font = section_font
         
         row += 1
         sheet[f"A{row}"] = "Total Portfolio Value Before:"
@@ -203,7 +204,7 @@ class ExcelIO:
         # Operations section
         row += 3
         sheet[f"A{row}"] = "Operations Needed"
-        sheet[f"A{row}"].font = Font(bold=True, size=12)
+        sheet[f"A{row}"].font = section_font
         
         row += 1
         headers = [
@@ -246,6 +247,76 @@ class ExcelIO:
             sheet[f"G{row}"].number_format = '0.00%'
             sheet[f"H{row}"] = asset.target_weight
             sheet[f"H{row}"].number_format = '0.00%'
+        
+        # Final Portfolio section
+        row += 3
+        sheet[f"A{row}"] = "Final Portfolio Weights"
+        sheet[f"A{row}"].font = section_font
+        
+        row += 1
+        final_headers = [
+            "Symbol",
+            "Final Quantity",
+            "Price",
+            "Final Value (€)",
+            "Final Weight",
+            "Target Weight",
+            "Deviation",
+        ]
+        
+        for col_idx, header in enumerate(final_headers, start=1):
+            cell = sheet.cell(row=row, column=col_idx)
+            cell.value = header
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_alignment
+        
+        # Final portfolio rows
+        for asset in result.assets:
+            row += 1
+            final_qty = asset.quantity + asset.delta_quantity
+            final_value = final_qty * asset.price
+            final_weight = final_value / result.total_value_after if result.total_value_after > 0 else 0
+            deviation = final_weight - asset.target_weight
+            
+            sheet[f"A{row}"] = asset.symbol
+            sheet[f"B{row}"] = final_qty
+            sheet[f"B{row}"].number_format = '0.00'
+            sheet[f"C{row}"] = asset.price
+            sheet[f"C{row}"].number_format = '€#,##0.00'
+            sheet[f"D{row}"] = final_value
+            sheet[f"D{row}"].number_format = '€#,##0.00'
+            sheet[f"E{row}"] = final_weight
+            sheet[f"E{row}"].number_format = '0.00%'
+            sheet[f"F{row}"] = asset.target_weight
+            sheet[f"F{row}"].number_format = '0.00%'
+            sheet[f"G{row}"] = deviation
+            sheet[f"G{row}"].number_format = '0.00%'
+            
+            # Color code deviation (green if close to target, yellow/red if far)
+            if abs(deviation) < 0.001:  # Within 0.1%
+                sheet[f"G{row}"].font = Font(color="006100", bold=True)  # Dark green
+            elif abs(deviation) < 0.01:  # Within 1%
+                sheet[f"G{row}"].font = Font(color="9C6500")  # Dark yellow
+            else:
+                sheet[f"G{row}"].font = Font(color="9C0006")  # Dark red
+        
+        # Total row
+        row += 1
+        sheet[f"A{row}"] = "TOTAL"
+        sheet[f"A{row}"].font = Font(bold=True)
+        sheet[f"D{row}"] = result.total_value_after
+        sheet[f"D{row}"].number_format = '€#,##0.00'
+        sheet[f"D{row}"].font = Font(bold=True)
+        
+        # Sum of final weights (should be 100%)
+        total_weight = sum(
+            (asset.quantity + asset.delta_quantity) * asset.price / result.total_value_after
+            for asset in result.assets
+        ) if result.total_value_after > 0 else 0
+        sheet[f"E{row}"] = total_weight
+        sheet[f"E{row}"].number_format = '0.00%'
+        sheet[f"E{row}"].font = Font(bold=True)
         
         # Adjust column widths
         self._adjust_column_widths(sheet)
