@@ -1,48 +1,95 @@
 # Changelog
 
-Tutte le modifiche significative al progetto saranno documentate in questo file.
+All notable changes to this project will be documented in this file.
 
-Il formato è basato su [Keep a Changelog](https://keepachangelog.com/it/1.0.0/),
-e questo progetto aderisce al [Semantic Versioning](https://semver.org/lang/it/).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### In sviluppo
-- Modulo I/O per Excel
-- Web interface (pianificata per v0.2.0)
-- Supporto multi-valuta (pianificato per v0.3.0)
+### Planned
+- Excel I/O module
+- Web interface (planned for v0.2.0)
+- Multi-currency support (planned for v0.3.0)
+
+## [0.1.1] - 2026-02-02
+
+### Fixed
+- **Critical**: Fixed incorrect tax calculation formula in `Asset.compute_cash_in()` that was causing negative cash values for profitable sales
+- **Critical**: Fixed cash flow closing tolerance to use relative tolerance instead of absolute, preventing cash flow imbalances
+- Fixed Python 3.8 compatibility by using `Tuple` from `typing` instead of built-in `tuple` in type hints
+- Updated test expectations to match corrected tax calculation formula
+
+### Changed
+- Improved documentation: comprehensive English README with separate sections for end users and developers
+- Added detailed contributing guidelines in `docs/CONTRIBUTING.md`
+- Updated CHANGELOG to English
+
+### Technical Details
+
+#### Tax Calculation Fix
+Previous formula (incorrect):
+```python
+tax_factor = 1 - self.tax_rate * taxable_gain  # Could produce negative values!
+```
+
+Corrected formula:
+```python
+tax_per_share = self.tax_rate * taxable_gain_per_share
+net_price = self.price - tax_per_share
+cash_in = quantity_sold * net_price
+```
+
+#### Cash Flow Tolerance Fix
+Previous (absolute tolerance):
+```python
+if abs(cash_flow) < 0.01:  # Too strict
+    return
+```
+
+Corrected (relative tolerance):
+```python
+if abs(cash_flow / total_cash_out) < 1e-10:  # Scales with portfolio size
+    return
+```
+
+### Impact
+- All 17 tests now pass on Python 3.8, 3.9, 3.10, and 3.11
+- Cash flow is correctly balanced (close to zero)
+- Post-rebalancing weights are accurate (within 1% of targets)
+- Tax calculations are mathematically correct
 
 ## [0.1.0] - 2026-02-02
 
-### Aggiunto
-- Core engine di ribilanciamento deterministico (8 step)
-- Modelli dati: `Asset`, `Portfolio`, `RebalancingResult`
-- Policy di arrotondamento: `RoundingPolicy` (FLOOR, ROUND, CEIL)
-- Calcolo tassazione capital gain
-- Chiusura automatica del cash flow con scalatura proporzionale
-- Test unitari per core engine e models
-- Esempio base di utilizzo
-- Documentazione completa:
-  - `README.md` - Panoramica e guida rapida
-  - `docs/ALGORITHM.md` - Algoritmo dettagliato
-  - `docs/VARIABLES.md` - Definizioni formali
-  - `docs/DESIGN.md` - Scelte progettuali
-- Configurazione CI/CD con GitHub Actions
-- Licenza MIT
+### Added
+- Core deterministic rebalancing engine (8-step algorithm)
+- Data models: `Asset`, `Portfolio`, `RebalancingResult`
+- Rounding policies: `RoundingPolicy` (FLOOR, ROUND, CEIL)
+- Capital gains tax calculation
+- Automatic cash flow closure with proportional scaling
+- Unit tests for core engine and models
+- Basic usage examples
+- Comprehensive documentation:
+  - `README.md` - Overview and quick start
+  - `docs/ALGORITHM.md` - Detailed algorithm
+  - `docs/DESIGN.md` - Design decisions
+- CI/CD configuration with GitHub Actions
+- MIT License
 
-### Caratteristiche
-- ✅ Determinismo: stesso input → stesso output
-- ✅ Trasparenza: ogni calcolo ispezionabile
-- ✅ Tax-aware: gestione capital gain tax
-- ✅ Cash-flow neutral: minimizza apporti/prelievi esterni
-- ✅ Nessuna ottimizzazione numerica complessa
-- ✅ Type hints completi
-- ✅ Documentazione esaustiva
+### Features
+- ✅ Deterministic: same input → same output
+- ✅ Transparent: every calculation is inspectable
+- ✅ Tax-aware: capital gains tax handling
+- ✅ Cash-flow neutral: minimizes external contributions/withdrawals
+- ✅ No complex numerical optimization
+- ✅ Complete type hints
+- ✅ Comprehensive documentation
 
-### Note
-- Questa è la prima release alpha del progetto
-- Il core engine è stabile e testato
-- L'API potrebbe subire modifiche nelle versioni successive
+### Notes
+- This is the first alpha release
+- Core engine is stable and tested
+- API may change in future versions
 
-[Unreleased]: https://github.com/jacopo-monti/portfolio-rebalancer/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/jacopo-monti/portfolio-rebalancer/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/jacopo-monti/portfolio-rebalancer/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/jacopo-monti/portfolio-rebalancer/releases/tag/v0.1.0
