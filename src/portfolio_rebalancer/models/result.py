@@ -80,7 +80,7 @@ class RebalancingResult:
         lines = [
             "=" * 60,
             "Ribilanciamento Portafoglio",
-            "="ht 60,
+            "=" * 60,
             "",
             f"Valore totale: €{self.total_value_before:,.2f}",
             f"Operazioni: {self.num_buys} acquisti, {self.num_sells} vendite",
