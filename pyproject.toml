@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "portfolio-rebalancer"
-version = "0.1.0"
+version = "0.1.1"
 description = "A deterministic tool for portfolio rebalancing with tax-aware calculations"
 readme = "README.md"
 requires-python = ">=3.8"
-license = {text = "MIT"}
+license = {text = "Proprietary"}
 authors = [
-    {name = "Portfolio Rebalancer Contributors"},
+    {name = "Jacopo Monti", email = "jacopo.monti.jm@gmail.com"},
 ]
 keywords = [
     "portfolio",
@@ -24,7 +24,6 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Financial and Insurance Industry",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
@@ -35,7 +34,6 @@ classifiers = [
 ]
 
 dependencies = [
-    "pandas>=1.3.0",
     "openpyxl>=3.0.0",
 ]
 
