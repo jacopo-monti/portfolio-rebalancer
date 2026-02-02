@@ -1,5 +1,7 @@
 """Core rebalancing engine implementing the deterministic 8-step algorithm."""
 
+from __future__ import annotations
+
 from typing import Optional, Tuple
 
 from portfolio_rebalancer.models.asset import Asset
@@ -151,7 +153,7 @@ class RebalancingEngine:
         for asset in portfolio.assets:
             asset.delta_quantity = asset.delta_value / asset.price
     
-    def _compute_cash_flow(self, portfolio: Portfolio) -> Tuple[float, float, float]:
+    def _compute_cash_flow(self, portfolio: Portfolio) -> tuple[float, float, float]:
         """Step 5: Compute cash flow with taxation.
         
         For sales (Delta_Q < 0):
