@@ -3,75 +3,70 @@
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![Tests](https://github.com/jacopo-monti/portfolio-rebalancer/workflows/Tests/badge.svg)](https://github.com/jacopo-monti/portfolio-rebalancer/actions)
 
-A deterministic portfolio rebalancing tool with tax-aware calculations. No optimization, no financial advice, just math.
+A deterministic portfolio rebalancing tool with tax-aware calculations.
 
-## ⚠️ Important Disclaimer
+---
 
-**This software does NOT provide financial advice.**
+## ⚠️ IMPORTANT DISCLAIMERS
 
-This tool is a mathematical calculator that:
-- ✅ Computes operations needed to bring a portfolio back to predefined target percentages
-- ✅ Accounts for practical constraints (taxation, cash flow, integer shares)
-- ❌ Does NOT optimize returns or risk
-- ❌ Does NOT make market predictions
-- ❌ Does NOT suggest which assets to buy
-- ❌ Does NOT provide investment recommendations
+### No Financial Advice
 
-**Use this software entirely at your own risk.**
+**THIS SOFTWARE DOES NOT PROVIDE FINANCIAL, INVESTMENT, TAX, OR LEGAL ADVICE.**
+
+This is a mathematical calculation tool only. It:
+
+- ✅ **Computes mathematical operations** to bring a portfolio to predefined target percentages
+- ✅ **Accounts for constraints** like taxation, cash flow, and integer share requirements
+- ❌ **Does NOT optimize** returns, risk, or portfolio performance
+- ❌ **Does NOT make predictions** about markets, asset prices, or future performance
+- ❌ **Does NOT recommend** which assets to buy, sell, or hold
+- ❌ **Does NOT provide advice** on investment strategy, asset allocation, or financial planning
+- ❌ **Does NOT consider** your personal financial situation, goals, risk tolerance, or constraints
+
+**All investment decisions are entirely your own responsibility.**
+
+### No Warranty
+
+This software is provided "AS IS" without warranty of any kind, express or implied. The authors:
+
+- Make no guarantees about accuracy, reliability, or suitability for any purpose
+- Are not liable for any damages, losses, or consequences from using this software
+- Do not guarantee that calculations are error-free or appropriate for your situation
+
+**Use this software entirely at your own risk. Verify all results independently.**
+
+### Not Professional Services
+
+This software does not substitute for:
+- Professional financial advisors
+- Certified tax accountants
+- Qualified investment managers
+- Legal counsel
+
+Consult qualified professionals for personalized advice.
+
+---
 
 ## 📖 Table of Contents
 
-- [Quick Start](#-quick-start)
-- [For End Users](#-for-end-users)
+- [Instructions](#-instructions)
   - [Installation](#installation)
   - [Basic Usage](#basic-usage)
   - [Excel Workflow](#excel-workflow)
+  - [Advanced Options](#advanced-options)
+  - [Troubleshooting](#troubleshooting)
 - [For Developers](#-for-developers)
   - [Development Setup](#development-setup)
   - [Project Structure](#project-structure)
   - [Running Tests](#running-tests)
   - [Contributing](#contributing)
 - [Algorithm](#-algorithm)
-- [Philosophy](#-philosophy)
 - [Documentation](#-documentation)
-
-## 🚀 Quick Start
-
-### Install
-
-```bash
-pip install portfolio-rebalancer
-```
-
-### Basic Example
-
-```python
-from portfolio_rebalancer.models import Portfolio, Asset
-from portfolio_rebalancer.engine import RebalancingEngine
-
-# Define your portfolio
-portfolio = Portfolio(
-    assets=[
-        Asset("VWCE", quantity=50, price=100.0, avg_cost=95.0, 
-              tax_rate=0.26, target_weight=0.60),
-        Asset("AGGH", quantity=30, price=110.0, avg_cost=108.0, 
-              tax_rate=0.26, target_weight=0.25),
-        Asset("EIMI", quantity=20, price=135.0, avg_cost=130.0, 
-              tax_rate=0.26, target_weight=0.15),
-    ]
-)
-
-# Rebalance
-engine = RebalancingEngine()
-result = engine.rebalance(portfolio)
-
-# View results
-print(result.summary())
-```
+- [Copyright](#-copyright)
 
 ---
 
-## 👤 For End Users
+## 📋 Instructions
 
 ### Installation
 
@@ -385,12 +380,12 @@ mypy src/
 
 ### Contributing
 
-We welcome contributions! This project enables:
+Contributions are welcome! Please:
 
-- Code and algorithm review
-- Bug reports
-- Documentation improvements
-- New features (that respect the project's philosophy)
+- Open issues for bug reports or feature requests
+- Submit pull requests with clear descriptions
+- Ensure tests pass before submitting
+- Follow existing code style and conventions
 
 #### Contribution Workflow
 
@@ -412,14 +407,6 @@ We welcome contributions! This project enables:
    git push origin feature/my-feature
    ```
 6. **Open a Pull Request** on GitHub
-
-#### Contribution Guidelines
-
-- **Core engine must remain deterministic** - no stochastic optimization
-- **No complex numerical optimization** - no solvers, no machine learning
-- **Well-documented code** - docstrings for all public APIs
-- **Tested code** - maintain or improve test coverage
-- **Respect the philosophy** - transparency and explainability first
 
 See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for detailed guidelines.
 
@@ -545,37 +532,6 @@ For detailed algorithm documentation, see [docs/ALGORITHM.md](docs/ALGORITHM.md)
 
 ---
 
-## 🎯 Philosophy
-
-This project is built on clear principles:
-
-### What We Believe In
-
-1. **Transparency**: Every calculation is inspectable and reproducible
-2. **Determinism**: Same input → same output (always)
-3. **Separation of Concerns**: Mathematical core independent of I/O
-4. **Simplicity**: No black-box optimization, just elementary math
-5. **Explainability**: Every decision can be traced back to inputs
-
-### What We DON'T Do
-
-- ❌ Market predictions
-- ❌ Risk/return optimization
-- ❌ Asset selection recommendations
-- ❌ Direct broker integration
-- ❌ Automatic price fetching
-- ❌ Machine learning or AI
-- ❌ Multi-currency (advanced)
-
-### Target Audience
-
-- Power users interested in personal finance
-- Investor communities wanting to automate rebalancing
-- Finance professors and students
-- Anyone who wants to understand exactly what happens in their portfolio
-
----
-
 ## 📚 Documentation
 
 - [ALGORITHM.md](docs/ALGORITHM.md) - Detailed algorithm with all formulas
@@ -590,4 +546,12 @@ For questions, suggestions, or bug reports: [Open an issue](https://github.com/j
 
 ---
 
-**Remember**: This software is a calculation tool, not a financial advisor. Investment decisions are always yours alone.
+## ©️ Copyright
+
+**Copyright © 2026 Jacopo Monti. All Rights Reserved.**
+
+This software and associated documentation are proprietary and confidential.
+
+Unauthorized copying, distribution, modification, public display, or public performance of this software, via any medium, is strictly prohibited without explicit written permission from the copyright holder.
+
+For licensing inquiries, please contact the author.
