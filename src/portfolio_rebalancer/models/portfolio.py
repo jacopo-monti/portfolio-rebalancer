@@ -12,16 +12,24 @@ class Portfolio:
     
     Attributes:
         assets: List of Asset objects in the portfolio
+        cash_available: Additional cash available to invest (default: 0.0)
         name: Optional portfolio name for identification
     """
     
     assets: List[Asset]
+    cash_available: float = 0.0
     name: str = field(default="Portfolio")
     
     def __post_init__(self) -> None:
         """Validate portfolio after initialization."""
         if not self.assets:
             raise ValueError("Portfolio must contain at least one asset")
+        
+        # Validate cash_available is non-negative
+        if self.cash_available < 0:
+            raise ValueError(
+                f"Cash available must be non-negative, got {self.cash_available}"
+            )
         
         # Validate that target weights sum to 1.0 (with tolerance)
         total_target_weight = sum(asset.target_weight for asset in self.assets)
