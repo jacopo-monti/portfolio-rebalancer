@@ -1,6 +1,5 @@
 # Portfolio Rebalancer
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![Tests](https://github.com/jacopo-monti/portfolio-rebalancer/workflows/Tests/badge.svg)](https://github.com/jacopo-monti/portfolio-rebalancer/actions)
 
@@ -341,7 +340,6 @@ portfolio-rebalancer/
 │   └── workflows/
 │       └── tests.yml             # CI/CD configuration
 ├── README.md                     # This file
-├── LICENSE                       # MIT License
 ├── pyproject.toml               # Project metadata and dependencies
 └── .gitignore
 ```
@@ -387,7 +385,7 @@ mypy src/
 
 ### Contributing
 
-We welcome contributions! This project is open source to enable:
+We welcome contributions! This project enables:
 
 - Code and algorithm review
 - Bug reports
@@ -583,32 +581,6 @@ This project is built on clear principles:
 - [ALGORITHM.md](docs/ALGORITHM.md) - Detailed algorithm with all formulas
 - [DESIGN.md](docs/DESIGN.md) - Design decisions and rationale
 - [CONTRIBUTING.md](docs/CONTRIBUTING.md) - Contribution guidelines
-
----
-
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) for details.
-
-This means you can:
-- ✅ Use commercially
-- ✅ Modify
-- ✅ Distribute
-- ✅ Use privately
-
-But:
-- ⚠️ No warranty provided
-- ⚠️ No liability accepted
-
----
-
-## 🙏 Acknowledgments
-
-This project was created out of the need for a rebalancing tool that is:
-- Completely transparent
-- Mathematically simple
-- Verifiable by anyone
-- Free of algorithmic "magic"
 
 ---
 
