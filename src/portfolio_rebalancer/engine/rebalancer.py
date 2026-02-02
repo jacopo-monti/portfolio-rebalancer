@@ -19,7 +19,7 @@ class RebalancingEngine:
     3. Compute target values (Delta_Vi)
     4. Convert to quantities (Delta_Qi)
     5. Compute cash flow with taxation
-    6. Close cash flow (proportional scaling)
+    6. Close cash flow (proportional scaling, considering available cash)
     7. Simulate post-rebalancing state
     8. Apply rounding (optional)
     
@@ -50,8 +50,10 @@ class RebalancingEngine:
         # Step 2: Compute deviations
         self._compute_deviations(portfolio)
         
-        # Step 3: Compute target values
-        self._compute_target_values(portfolio, total_value)
+        # Step 3: Compute target values (considering available cash)
+        # When cash is available, we rebalance to (current_value + cash)
+        target_total_value = total_value + portfolio.cash_available
+        self._compute_target_values(portfolio, target_total_value)
         
         # Step 4: Convert to quantities
         self._compute_quantity_changes(portfolio)
@@ -59,8 +61,8 @@ class RebalancingEngine:
         # Step 5: Compute cash flow
         cash_in, cash_out, cash_flow = self._compute_cash_flow(portfolio)
         
-        # Step 6: Close cash flow
-        self._close_cash_flow(portfolio, cash_flow, cash_out)
+        # Step 6: Close cash flow (target is to use available cash)
+        self._close_cash_flow(portfolio, cash_flow, cash_out, portfolio.cash_available)
         
         # Recompute cash flow after adjustment
         cash_in, cash_out, cash_flow = self._compute_cash_flow(portfolio)
@@ -86,7 +88,8 @@ class RebalancingEngine:
             metadata={
                 "rounding_policy": (
                     self.rounding_policy.value if self.rounding_policy else None
-                )
+                ),
+                "cash_available": portfolio.cash_available,
             },
         )
         
@@ -128,16 +131,18 @@ class RebalancingEngine:
         for asset in portfolio.assets:
             asset.deviation = asset.current_weight - asset.target_weight
     
-    def _compute_target_values(self, portfolio: Portfolio, total_value: float) -> None:
+    def _compute_target_values(self, portfolio: Portfolio, target_total_value: float) -> None:
         """Step 3: Compute target value changes in euros.
         
         For each asset i:
-            Delta_Vi = (w_target_i x V_tot) - Vi
+            Delta_Vi = (w_target_i x V_target_tot) - Vi
+        
+        Where V_target_tot = V_current + cash_available
         
         This converts percentage deviations to euro values.
         """
         for asset in portfolio.assets:
-            target_value = asset.target_weight * total_value
+            target_value = asset.target_weight * target_total_value
             asset.delta_value = target_value - asset.current_value
     
     def _compute_quantity_changes(self, portfolio: Portfolio) -> None:
@@ -182,13 +187,25 @@ class RebalancingEngine:
         cash_flow = total_cash_in - total_cash_out
         return total_cash_in, total_cash_out, cash_flow
     
-    def _close_cash_flow(self, portfolio: Portfolio, cash_flow: float, total_cash_out: float) -> None:
+    def _close_cash_flow(
+        self, 
+        portfolio: Portfolio, 
+        cash_flow: float, 
+        total_cash_out: float,
+        cash_available: float
+    ) -> None:
         """Step 6: Close cash flow using proportional scaling.
         
-        If CF != 0, scale purchases proportionally:
-            Delta_Qi_adjusted = Delta_Qi x (1 + CF / Sum(cash_out))    for Delta_Qi > 0
+        Target cash flow:
+            CF_target = -cash_available
         
-        This ensures CF ~= 0 without requiring external cash injection/withdrawal.
+        If cash_available > 0:
+            We want CF = -cash_available (negative = we need to add cash)
+        
+        If CF != CF_target, scale purchases proportionally:
+            Delta_Qi_adjusted = Delta_Qi x (1 + (CF - CF_target) / Sum(cash_out))    for Delta_Qi > 0
+        
+        This ensures we use exactly the available cash (or balance to zero if no cash available).
         
         Note: We use proportional scaling (not optimization) for simplicity and
         determinism. This is a deliberate design choice.
@@ -200,11 +217,18 @@ class RebalancingEngine:
         if total_cash_out == 0:
             return  # No purchases to scale
         
-        if abs(cash_flow / total_cash_out) < relative_tolerance:
+        # Target cash flow: negative of available cash (we want to spend it)
+        target_cash_flow = -cash_available
+        
+        # Check if already at target (with tolerance)
+        cash_flow_diff = cash_flow - target_cash_flow
+        if abs(cash_flow_diff / total_cash_out) < relative_tolerance:
             return  # Already balanced (relative to portfolio size)
         
         # Scale factor for purchases
-        scale_factor = 1 + cash_flow / total_cash_out
+        # If CF > CF_target: we have too much cash → increase purchases
+        # If CF < CF_target: we have too little cash → decrease purchases
+        scale_factor = 1 + cash_flow_diff / total_cash_out
         
         # Apply only to purchases
         for asset in portfolio.assets:
@@ -241,7 +265,7 @@ class RebalancingEngine:
         - CEIL: round up
         
         Note: Rounding will cause:
-        - Cash flow to deviate from zero
+        - Cash flow to deviate from target (zero or -cash_available)
         - Post-rebalancing weights to deviate from targets
         
         These deviations are acceptable and reported to the user.
