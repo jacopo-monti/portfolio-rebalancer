@@ -1,3 +1,5 @@
 """Input/Output modules for various formats."""
 
-__all__ = []
+from portfolio_rebalancer.io.excel import ExcelIO
+
+__all__ = ["ExcelIO"]
