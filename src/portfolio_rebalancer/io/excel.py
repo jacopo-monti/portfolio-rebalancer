@@ -160,14 +160,18 @@ class ExcelIO:
         sheet[f"B{row}"].number_format = '€#,##0.00'
         
         row += 1
-        sheet[f"A{row}"] = "Max Deviation:"
+        sheet[f"A{row}"] = "Total Tax Paid:"
+        sheet[f"B{row}"] = result.total_tax_paid
+        sheet[f"B{row}"].number_format = '€#,##0.00'
+        
+        row += 1
+        sheet[f"A{row}"] = "Max Deviation from Target:"
         sheet[f"B{row}"] = result.max_deviation
         sheet[f"B{row}"].number_format = '0.00%'
         
         row += 1
-        sheet[f"A{row}"] = "Accuracy:"
-        sheet[f"B{row}"] = result.accuracy
-        sheet[f"B{row}"].number_format = '0.00%'
+        sheet[f"A{row}"] = "Number of Operations:"
+        sheet[f"B{row}"] = result.num_operations
         
         # Operations section
         row += 3
