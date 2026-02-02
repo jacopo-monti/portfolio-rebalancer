@@ -67,7 +67,14 @@ class Asset:
     def compute_cash_in(self, quantity_sold: float) -> float:
         """Compute net cash from selling quantity, accounting for taxes.
         
-        Formula: cash_in = |qty| × P × (1 − T × max(0, P − PMC))
+        Formula: 
+            Capital gain per share: G = P − PMC
+            Tax per share: T_share = T × max(0, G)
+            Cash in: cash_in = qty × (P − T_share)
+        
+        Which simplifies to:
+            cash_in = qty × P × (1 − T × max(0, G) / P)
+            cash_in = qty × (P − T × max(0, P − PMC))
         
         Args:
             quantity_sold: Number of shares to sell (positive value)
@@ -78,9 +85,10 @@ class Asset:
         if quantity_sold <= 0:
             return 0.0
         
-        taxable_gain = max(0, self.capital_gain_per_share)
-        tax_factor = 1 - self.tax_rate * taxable_gain
-        return quantity_sold * self.price * tax_factor
+        taxable_gain_per_share = max(0, self.capital_gain_per_share)
+        tax_per_share = self.tax_rate * taxable_gain_per_share
+        net_price = self.price - tax_per_share
+        return quantity_sold * net_price
     
     def compute_cash_out(self, quantity_bought: float) -> float:
         """Compute cash needed to buy quantity.
