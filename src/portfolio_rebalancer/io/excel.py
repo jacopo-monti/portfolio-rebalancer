@@ -8,6 +8,7 @@ try:
     import openpyxl
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.utils import get_column_letter
 except ImportError:
     raise ImportError(
         "openpyxl is required for Excel support. Install with: pip install openpyxl"
@@ -103,6 +104,32 @@ class ExcelIO:
         portfolio = Portfolio(assets=assets)
         return portfolio
     
+    def _adjust_column_widths(self, sheet) -> None:
+        """Adjust column widths based on content.
+        
+        Args:
+            sheet: openpyxl worksheet
+        """
+        for column_cells in sheet.columns:
+            max_length = 0
+            # Get column letter from first non-merged cell
+            column_letter = None
+            for cell in column_cells:
+                # Skip merged cells
+                if hasattr(cell, 'column_letter'):
+                    if column_letter is None:
+                        column_letter = cell.column_letter
+                    try:
+                        cell_value = str(cell.value) if cell.value is not None else ""
+                        if len(cell_value) > max_length:
+                            max_length = len(cell_value)
+                    except:
+                        pass
+            
+            if column_letter:
+                adjusted_width = min(max_length + 2, 50)
+                sheet.column_dimensions[column_letter].width = max(adjusted_width, 10)
+    
     def write_result(
         self, result: RebalancingResult, filepath: str, sheet_name: str = "Rebalancing"
     ) -> None:
@@ -118,7 +145,7 @@ class ExcelIO:
         sheet.title = sheet_name
         
         # Styles
-        header_font = Font(bold=True, size=12)
+        header_font = Font(bold=True, size=12, color="FFFFFF")
         header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
         header_alignment = Alignment(horizontal="center", vertical="center")
         
@@ -221,17 +248,7 @@ class ExcelIO:
             sheet[f"H{row}"].number_format = '0.00%'
         
         # Adjust column widths
-        for col in sheet.columns:
-            max_length = 0
-            column = col[0].column_letter
-            for cell in col:
-                try:
-                    if len(str(cell.value)) > max_length:
-                        max_length = len(str(cell.value))
-                except:
-                    pass
-            adjusted_width = min(max_length + 2, 50)
-            sheet.column_dimensions[column].width = adjusted_width
+        self._adjust_column_widths(sheet)
         
         # Save workbook
         try:
@@ -254,7 +271,7 @@ class ExcelIO:
         sheet.title = sheet_name
         
         # Styles
-        header_font = Font(bold=True, size=11)
+        header_font = Font(bold=True, size=11, color="FFFFFF")
         header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
         header_alignment = Alignment(horizontal="center", vertical="center")
         
@@ -282,17 +299,7 @@ class ExcelIO:
             sheet[f"F{row_idx}"].number_format = '0.00%'
         
         # Adjust column widths
-        for col in sheet.columns:
-            max_length = 0
-            column = col[0].column_letter
-            for cell in col:
-                try:
-                    if len(str(cell.value)) > max_length:
-                        max_length = len(str(cell.value))
-                except:
-                    pass
-            adjusted_width = min(max_length + 2, 20)
-            sheet.column_dimensions[column].width = adjusted_width
+        self._adjust_column_widths(sheet)
         
         # Save workbook
         try:
