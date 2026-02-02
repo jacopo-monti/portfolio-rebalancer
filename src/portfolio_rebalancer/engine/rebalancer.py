@@ -191,13 +191,15 @@ class RebalancingEngine:
         Note: We use proportional scaling (not optimization) for simplicity and
         determinism. This is a deliberate design choice.
         """
-        tolerance = 0.01  # €0.01 tolerance
-        
-        if abs(cash_flow) < tolerance:
-            return  # Already balanced
+        # Use relative tolerance instead of absolute to handle floating point precision
+        # and different portfolio sizes
+        relative_tolerance = 1e-10
         
         if total_cash_out == 0:
             return  # No purchases to scale
+        
+        if abs(cash_flow / total_cash_out) < relative_tolerance:
+            return  # Already balanced (relative to portfolio size)
         
         # Scale factor for purchases
         scale_factor = 1 + cash_flow / total_cash_out
