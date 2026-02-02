@@ -82,15 +82,17 @@ class TestAsset:
         )
         
         # Selling 5 shares at 110 (cost 100, gain 10 per share)
-        # Tax = 5 * 10 * 0.26 = 13
-        # Cash in = 5 * 110 - 13 = 550 - 13 = 537
+        # Capital gain per share: 110 - 100 = 10
+        # Tax per share: 0.26 * 10 = 2.6
+        # Net price per share: 110 - 2.6 = 107.4
+        # Cash in: 5 * 107.4 = 537.0
         cash_in = asset.compute_cash_in(5.0)
-        expected = 5.0 * 110.0 * (1 - 0.26 * 10.0)
         
-        # Note: The formula is actually wrong in my implementation!
-        # Should be: 5 * 110 * (1 - 0.26 * (110-100)/110)
-        # Let's fix it to: cash_in = qty * price - qty * taxable_gain * tax_rate
-        # For now, test what's implemented
+        # Correct formula: cash_in = qty * (price - tax_rate * taxable_gain)
+        taxable_gain = 110.0 - 100.0  # 10.0
+        tax_per_share = 0.26 * taxable_gain  # 2.6
+        expected = 5.0 * (110.0 - tax_per_share)  # 5 * 107.4 = 537.0
+        
         assert cash_in == pytest.approx(expected, rel=1e-6)
 
 
