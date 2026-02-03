@@ -13,6 +13,7 @@ class Asset:
         quantity: Current number of shares/units owned (Qᵢ)
         price: Current market price per share (Pᵢ)
         avg_cost: Average cost basis per share (PMCᵢ)
+                  Can be 0 if quantity is 0 (new asset to be bought only)
         tax_rate: Capital gains tax rate as decimal (Tᵢ, e.g., 0.26 for 26%)
         target_weight: Desired portfolio weight as decimal (wᵢ, e.g., 0.60 for 60%)
         
@@ -45,8 +46,16 @@ class Asset:
             raise ValueError(f"Quantity must be non-negative, got {self.quantity}")
         if self.price <= 0:
             raise ValueError(f"Price must be positive, got {self.price}")
+        
+        # Allow avg_cost=0 only if quantity=0 (new asset to be bought only)
         if self.avg_cost <= 0:
-            raise ValueError(f"Average cost must be positive, got {self.avg_cost}")
+            if self.quantity > 0:
+                raise ValueError(
+                    f"Average cost must be positive when quantity > 0, "
+                    f"got avg_cost={self.avg_cost} with quantity={self.quantity}"
+                )
+            # If quantity=0 and avg_cost=0, it's a new asset to be bought only (OK)
+        
         if not 0 <= self.tax_rate <= 1:
             raise ValueError(f"Tax rate must be between 0 and 1, got {self.tax_rate}")
         if not 0 <= self.target_weight <= 1:
