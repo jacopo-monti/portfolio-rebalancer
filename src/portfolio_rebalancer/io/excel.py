@@ -166,6 +166,7 @@ class ExcelIO:
         
         title_font = Font(bold=True, size=14)
         section_font = Font(bold=True, size=12)
+        red_font = Font(color="9C0006")  # Red for negative cash flows
         
         # Title
         sheet["A1"] = "Portfolio Rebalancing Results"
@@ -197,15 +198,12 @@ class ExcelIO:
         row += 1
         sheet[f"A{row}"] = "Cash Flow Required:"
         sheet[f"B{row}"] = result.cash_flow
-        sheet[f"B{row}"].number_format = '€#,##0.00'
-        # Color code: green if close to target, red if far
-        target_cf = -cash_available
-        if abs(result.cash_flow - target_cf) < 1.0:
-            sheet[f"B{row}"].font = Font(color="006100", bold=True)
-        elif abs(result.cash_flow - target_cf) < 10.0:
-            sheet[f"B{row}"].font = Font(color="9C6500")
+        # Negative cash flow means money out (red), positive means money in (black)
+        if result.cash_flow < 0:
+            sheet[f"B{row}"].number_format = '-€#,##0.00'
+            sheet[f"B{row}"].font = red_font
         else:
-            sheet[f"B{row}"].font = Font(color="9C0006")
+            sheet[f"B{row}"].number_format = '€#,##0.00'
         
         row += 1
         sheet[f"A{row}"] = "Total Cash In (from sales):"
@@ -215,12 +213,22 @@ class ExcelIO:
         row += 1
         sheet[f"A{row}"] = "Total Cash Out (for purchases):"
         sheet[f"B{row}"] = result.total_cash_out
-        sheet[f"B{row}"].number_format = '€#,##0.00'
+        # Cash out is always negative, show in red
+        if result.total_cash_out != 0:
+            sheet[f"B{row}"].number_format = '-€#,##0.00'
+            sheet[f"B{row}"].font = red_font
+        else:
+            sheet[f"B{row}"].number_format = '€#,##0.00'
         
         row += 1
         sheet[f"A{row}"] = "Total Tax Paid:"
         sheet[f"B{row}"] = result.total_tax_paid
-        sheet[f"B{row}"].number_format = '€#,##0.00'
+        # Tax paid is money out, show in red
+        if result.total_tax_paid > 0:
+            sheet[f"B{row}"].number_format = '-€#,##0.00'
+            sheet[f"B{row}"].font = red_font
+        else:
+            sheet[f"B{row}"].number_format = '€#,##0.00'
         
         row += 1
         sheet[f"A{row}"] = "Max Deviation from Target:"
@@ -231,7 +239,7 @@ class ExcelIO:
         sheet[f"A{row}"] = "Number of Operations:"
         sheet[f"B{row}"] = result.num_operations
         
-        # Operations section
+        # Operations section - simplified (removed Current Qty, New Qty, Target Weight)
         row += 3
         sheet[f"A{row}"] = "Operations Needed"
         sheet[f"A{row}"].font = section_font
@@ -242,10 +250,7 @@ class ExcelIO:
             "Action",
             "Quantity Change",
             "Value Change (€)",
-            "Current Qty",
-            "New Qty",
             "Current Weight",
-            "Target Weight",
         ]
         
         for col_idx, header in enumerate(headers, start=1):
@@ -259,24 +264,22 @@ class ExcelIO:
         for asset in result.assets:
             row += 1
             action = "BUY" if asset.delta_quantity > 0 else ("SELL" if asset.delta_quantity < 0 else "HOLD")
-            new_qty = asset.quantity + asset.delta_quantity
-            new_value = new_qty * asset.price
-            new_weight = new_value / result.total_value_after if result.total_value_after > 0 else 0
             
             sheet[f"A{row}"] = asset.symbol
             sheet[f"B{row}"] = action
             sheet[f"C{row}"] = asset.delta_quantity
             sheet[f"C{row}"].number_format = '0.00'
+            
+            # Value Change: negative (sell/money in) is black, positive (buy/money out) is red
             sheet[f"D{row}"] = asset.delta_value
-            sheet[f"D{row}"].number_format = '€#,##0.00'
-            sheet[f"E{row}"] = asset.quantity
-            sheet[f"E{row}"].number_format = '0.00'
-            sheet[f"F{row}"] = new_qty
-            sheet[f"F{row}"].number_format = '0.00'
-            sheet[f"G{row}"] = asset.current_weight
-            sheet[f"G{row}"].number_format = '0.00%'
-            sheet[f"H{row}"] = asset.target_weight
-            sheet[f"H{row}"].number_format = '0.00%'
+            if asset.delta_value > 0:  # Money out (buying)
+                sheet[f"D{row}"].number_format = '-€#,##0.00'
+                sheet[f"D{row}"].font = red_font
+            else:  # Money in (selling) or hold
+                sheet[f"D{row}"].number_format = '€#,##0.00'
+            
+            sheet[f"E{row}"] = asset.current_weight
+            sheet[f"E{row}"].number_format = '0.00%'
         
         # Final Portfolio section
         row += 3
