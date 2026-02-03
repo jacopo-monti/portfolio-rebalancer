@@ -35,6 +35,7 @@ class ExcelIO:
     - Column D: Avg Cost (average purchase price)
     - Column E: Tax Rate (decimal, e.g., 0.26)
     - Column F: Target Weight (decimal, e.g., 0.60)
+    - Column G: Commission (€ per transaction, e.g., 2.50)
     """
     
     def read_portfolio(self, filepath: str, sheet_name: str = None) -> Portfolio:
@@ -81,13 +82,15 @@ class ExcelIO:
             if not any(row):
                 continue
             
+            # Support both 6 columns (old format) and 7 columns (new format with commission)
             if len(row) < 6:
                 raise ValueError(
-                    f"Row {row_idx} has insufficient columns. Expected 6 columns: "
-                    "Symbol, Quantity, Price, Avg Cost, Tax Rate, Target Weight"
+                    f"Row {row_idx} has insufficient columns. Expected at least 6 columns: "
+                    "Symbol, Quantity, Price, Avg Cost, Tax Rate, Target Weight (+ optional Commission)"
                 )
             
             symbol, quantity, price, avg_cost, tax_rate, target_weight = row[:6]
+            commission = row[6] if len(row) > 6 and row[6] is not None else 0.0
             
             # Validate data
             try:
@@ -97,6 +100,7 @@ class ExcelIO:
                 avg_cost = float(avg_cost)
                 tax_rate = float(tax_rate)
                 target_weight = float(target_weight)
+                commission = float(commission)
             except (ValueError, TypeError) as e:
                 raise ValueError(
                     f"Invalid data in row {row_idx}: {e}. "
@@ -197,12 +201,13 @@ class ExcelIO:
         
         row += 1
         sheet[f"A{row}"] = "Cash Flow Required:"
-        sheet[f"B{row}"] = result.cash_flow
-        # Negative cash flow means money out (red), positive means money in (black)
+        # Cash flow: negative = need to add money (red), positive = money freed (black)
         if result.cash_flow < 0:
-            sheet[f"B{row}"].number_format = '-€#,##0.00'
+            sheet[f"B{row}"] = abs(result.cash_flow)  # Store as positive
+            sheet[f"B{row}"].number_format = '-€#,##0.00'  # Display with minus
             sheet[f"B{row}"].font = red_font
         else:
+            sheet[f"B{row}"] = result.cash_flow
             sheet[f"B{row}"].number_format = '€#,##0.00'
         
         row += 1
@@ -212,22 +217,24 @@ class ExcelIO:
         
         row += 1
         sheet[f"A{row}"] = "Total Cash Out (for purchases):"
-        sheet[f"B{row}"] = result.total_cash_out
-        # Cash out is always negative, show in red
-        if result.total_cash_out != 0:
-            sheet[f"B{row}"].number_format = '-€#,##0.00'
+        # total_cash_out is stored as positive, show as negative in red
+        if result.total_cash_out > 0:
+            sheet[f"B{row}"] = result.total_cash_out  # Store as positive
+            sheet[f"B{row}"].number_format = '-€#,##0.00'  # Display with minus
             sheet[f"B{row}"].font = red_font
         else:
+            sheet[f"B{row}"] = 0.0
             sheet[f"B{row}"].number_format = '€#,##0.00'
         
         row += 1
         sheet[f"A{row}"] = "Total Tax Paid:"
-        sheet[f"B{row}"] = result.total_tax_paid
-        # Tax paid is money out, show in red
+        # Tax is stored as positive, show as negative in red
         if result.total_tax_paid > 0:
-            sheet[f"B{row}"].number_format = '-€#,##0.00'
+            sheet[f"B{row}"] = result.total_tax_paid  # Store as positive
+            sheet[f"B{row}"].number_format = '-€#,##0.00'  # Display with minus
             sheet[f"B{row}"].font = red_font
         else:
+            sheet[f"B{row}"] = 0.0
             sheet[f"B{row}"].number_format = '€#,##0.00'
         
         row += 1
@@ -270,12 +277,17 @@ class ExcelIO:
             sheet[f"C{row}"] = asset.delta_quantity
             sheet[f"C{row}"].number_format = '0.00'
             
-            # Value Change: negative (sell/money in) is black, positive (buy/money out) is red
-            sheet[f"D{row}"] = asset.delta_value
-            if asset.delta_value > 0:  # Money out (buying)
+            # Value Change logic:
+            # - delta_value > 0 means portfolio value increases (BUY) → negative cash flow (red)
+            # - delta_value < 0 means portfolio value decreases (SELL) → positive cash flow (black)
+            # So we need to INVERT the sign for display
+            sheet[f"D{row}"] = -asset.delta_value  # Invert sign
+            if asset.delta_value > 0:  # BUY: money out (negative display, red)
                 sheet[f"D{row}"].number_format = '-€#,##0.00'
                 sheet[f"D{row}"].font = red_font
-            else:  # Money in (selling) or hold
+            elif asset.delta_value < 0:  # SELL: money in (positive display, black)
+                sheet[f"D{row}"].number_format = '€#,##0.00'
+            else:  # HOLD
                 sheet[f"D{row}"].number_format = '€#,##0.00'
             
             sheet[f"E{row}"] = asset.current_weight
@@ -389,8 +401,8 @@ class ExcelIO:
         # Empty row for separation
         # Row 2 is empty
         
-        # Headers in row 3
-        headers = ["Symbol", "Quantity", "Price", "Avg Cost", "Tax Rate", "Target Weight"]
+        # Headers in row 3 - now with Commission column
+        headers = ["Symbol", "Quantity", "Price", "Avg Cost", "Tax Rate", "Target Weight", "Commission (€)"]
         for col_idx, header in enumerate(headers, start=1):
             cell = sheet.cell(row=3, column=col_idx)
             cell.value = header
@@ -411,6 +423,8 @@ class ExcelIO:
             sheet[f"E{row_idx}"].number_format = '0.00%'
             sheet[f"F{row_idx}"] = asset.target_weight
             sheet[f"F{row_idx}"].number_format = '0.00%'
+            sheet[f"G{row_idx}"] = 0.0  # Commission default to 0
+            sheet[f"G{row_idx}"].number_format = '€#,##0.00'
         
         # Adjust column widths
         self._adjust_column_widths(sheet)
