@@ -402,7 +402,7 @@ class ExcelIO:
             sheet[f"B{row_idx}"].number_format = '0.00'
             sheet[f"C{row_idx}"] = asset.price
             sheet[f"C{row_idx}"].number_format = '€#,##0.00'
-            sheet[f"D{row_idx}"] = asset.avg_purchase_price
+            sheet[f"D{row_idx}"] = asset.avg_cost
             sheet[f"D{row_idx}"].number_format = '€#,##0.00'
             sheet[f"E{row_idx}"] = asset.tax_rate
             sheet[f"E{row_idx}"].number_format = '0.00%'
