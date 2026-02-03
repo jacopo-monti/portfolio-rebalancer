@@ -277,17 +277,15 @@ class ExcelIO:
             sheet[f"C{row}"] = asset.delta_quantity
             sheet[f"C{row}"].number_format = '0.00'
             
-            # Value Change logic:
-            # - delta_value > 0 means portfolio value increases (BUY) → negative cash flow (red)
-            # - delta_value < 0 means portfolio value decreases (SELL) → positive cash flow (black)
-            # So we need to INVERT the sign for display
-            sheet[f"D{row}"] = -asset.delta_value  # Invert sign
-            if asset.delta_value > 0:  # BUY: money out (negative display, red)
+            # Value Change logic (CORRECTED):
+            # delta_value > 0 = portfolio value increases (BUY) → positive value, no sign issues
+            # delta_value < 0 = portfolio value decreases (SELL) → negative value, display negative in red
+            sheet[f"D{row}"] = asset.delta_value  # Use delta_value as-is
+            
+            if asset.delta_value < 0:  # SELL: portfolio value decreases (negative)
                 sheet[f"D{row}"].number_format = '-€#,##0.00'
                 sheet[f"D{row}"].font = red_font
-            elif asset.delta_value < 0:  # SELL: money in (positive display, black)
-                sheet[f"D{row}"].number_format = '€#,##0.00'
-            else:  # HOLD
+            else:  # BUY or HOLD: portfolio value increases or stays same (positive/zero)
                 sheet[f"D{row}"].number_format = '€#,##0.00'
             
             sheet[f"E{row}"] = asset.current_weight
@@ -338,13 +336,17 @@ class ExcelIO:
             sheet[f"G{row}"] = deviation
             sheet[f"G{row}"].number_format = '0.00%'
             
-            # Color code deviation (green if close to target, yellow/red if far)
-            if abs(deviation) < 0.001:  # Within 0.1%
-                sheet[f"G{row}"].font = Font(color="006100", bold=True)  # Dark green
-            elif abs(deviation) < 0.01:  # Within 1%
-                sheet[f"G{row}"].font = Font(color="9C6500")  # Dark yellow
-            else:
-                sheet[f"G{row}"].font = Font(color="9C0006")  # Dark red
+            # Deviation color coding (no bold, just colors):
+            # Green: |deviation| < 0.25%
+            # Yellow: 0.25% <= |deviation| < 1%
+            # Red: |deviation| >= 1%
+            abs_deviation = abs(deviation)
+            if abs_deviation < 0.0025:  # < 0.25%
+                sheet[f"G{row}"].font = Font(color="006100")  # Green (no bold)
+            elif abs_deviation < 0.01:  # 0.25% to 1%
+                sheet[f"G{row}"].font = Font(color="9C6500")  # Yellow (no bold)
+            else:  # >= 1%
+                sheet[f"G{row}"].font = Font(color="9C0006")  # Red (no bold)
         
         # Total row
         row += 1
