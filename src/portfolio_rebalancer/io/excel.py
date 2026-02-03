@@ -274,6 +274,40 @@ class ExcelIO:
             sheet[f"B{row}"] = 0.0
             sheet[f"B{row}"].number_format = '€#,##0.00'
         
+        # Commission summary section
+        row += 1
+        sheet[f"A{row}"] = "Total Commission on Purchases:"
+        # Commission is a cost, show as negative in red
+        if result.total_commission_buy > 0:
+            sheet[f"B{row}"] = result.total_commission_buy  # Store as positive
+            sheet[f"B{row}"].number_format = '-€#,##0.00'  # Display with minus
+            sheet[f"B{row}"].font = red_font
+        else:
+            sheet[f"B{row}"] = 0.0
+            sheet[f"B{row}"].number_format = '€#,##0.00'
+        
+        row += 1
+        sheet[f"A{row}"] = "Total Commission on Sales:"
+        # Commission is a cost, show as negative in red
+        if result.total_commission_sell > 0:
+            sheet[f"B{row}"] = result.total_commission_sell  # Store as positive
+            sheet[f"B{row}"].number_format = '-€#,##0.00'  # Display with minus
+            sheet[f"B{row}"].font = red_font
+        else:
+            sheet[f"B{row}"] = 0.0
+            sheet[f"B{row}"].number_format = '€#,##0.00'
+        
+        row += 1
+        sheet[f"A{row}"] = "Total Commissions:"
+        # Total commission is a cost, show as negative in red
+        if result.total_commission > 0:
+            sheet[f"B{row}"] = result.total_commission  # Store as positive
+            sheet[f"B{row}"].number_format = '-€#,##0.00'  # Display with minus
+            sheet[f"B{row}"].font = red_font
+        else:
+            sheet[f"B{row}"] = 0.0
+            sheet[f"B{row}"].number_format = '€#,##0.00'
+        
         row += 1
         sheet[f"A{row}"] = "Max Deviation from Target:"
         sheet[f"B{row}"] = result.max_deviation
