@@ -35,7 +35,14 @@ class ExcelIO:
     - Column D: Avg Cost (average purchase price)
     - Column E: Tax Rate (decimal, e.g., 0.26)
     - Column F: Target Weight (decimal, e.g., 0.60)
-    - Column G: Commission (€ per transaction, e.g., 2.50)
+    - Column G: Commission Buy Fixed (€, e.g., 2.50)
+    - Column H: Commission Buy Percent (decimal, e.g., 0.001 for 0.1%)
+    - Column I: Commission Buy Min (€, e.g., 1.00)
+    - Column J: Commission Buy Max (€, e.g., 10.00)
+    - Column K: Commission Sell Fixed (€, e.g., 2.50)
+    - Column L: Commission Sell Percent (decimal, e.g., 0.001 for 0.1%)
+    - Column M: Commission Sell Min (€, e.g., 1.00)
+    - Column N: Commission Sell Max (€, e.g., 10.00)
     """
     
     def read_portfolio(self, filepath: str, sheet_name: str = None) -> Portfolio:
@@ -82,15 +89,27 @@ class ExcelIO:
             if not any(row):
                 continue
             
-            # Support both 6 columns (old format) and 7 columns (new format with commission)
+            # Support old format (6 columns) and new format (14 columns)
             if len(row) < 6:
                 raise ValueError(
                     f"Row {row_idx} has insufficient columns. Expected at least 6 columns: "
-                    "Symbol, Quantity, Price, Avg Cost, Tax Rate, Target Weight (+ optional Commission)"
+                    "Symbol, Quantity, Price, Avg Cost, Tax Rate, Target Weight "
+                    "(+ optional commission columns)"
                 )
             
+            # Basic asset fields
             symbol, quantity, price, avg_cost, tax_rate, target_weight = row[:6]
-            commission = row[6] if len(row) > 6 and row[6] is not None else 0.0
+            
+            # Commission fields (default to 0.0 if missing or None)
+            commission_buy_fixed = row[6] if len(row) > 6 and row[6] is not None else 0.0
+            commission_buy_percent = row[7] if len(row) > 7 and row[7] is not None else 0.0
+            commission_buy_min = row[8] if len(row) > 8 and row[8] is not None else 0.0
+            commission_buy_max = row[9] if len(row) > 9 and row[9] is not None else 0.0
+            
+            commission_sell_fixed = row[10] if len(row) > 10 and row[10] is not None else 0.0
+            commission_sell_percent = row[11] if len(row) > 11 and row[11] is not None else 0.0
+            commission_sell_min = row[12] if len(row) > 12 and row[12] is not None else 0.0
+            commission_sell_max = row[13] if len(row) > 13 and row[13] is not None else 0.0
             
             # Validate data
             try:
@@ -100,7 +119,17 @@ class ExcelIO:
                 avg_cost = float(avg_cost)
                 tax_rate = float(tax_rate)
                 target_weight = float(target_weight)
-                commission = float(commission)
+                
+                # Commission values
+                commission_buy_fixed = float(commission_buy_fixed)
+                commission_buy_percent = float(commission_buy_percent)
+                commission_buy_min = float(commission_buy_min)
+                commission_buy_max = float(commission_buy_max)
+                
+                commission_sell_fixed = float(commission_sell_fixed)
+                commission_sell_percent = float(commission_sell_percent)
+                commission_sell_min = float(commission_sell_min)
+                commission_sell_max = float(commission_sell_max)
             except (ValueError, TypeError) as e:
                 raise ValueError(
                     f"Invalid data in row {row_idx}: {e}. "
@@ -114,6 +143,14 @@ class ExcelIO:
                 avg_cost=avg_cost,
                 tax_rate=tax_rate,
                 target_weight=target_weight,
+                commission_buy_fixed=commission_buy_fixed,
+                commission_buy_percent=commission_buy_percent,
+                commission_buy_min=commission_buy_min,
+                commission_buy_max=commission_buy_max,
+                commission_sell_fixed=commission_sell_fixed,
+                commission_sell_percent=commission_sell_percent,
+                commission_sell_min=commission_sell_min,
+                commission_sell_max=commission_sell_max,
             )
             assets.append(asset)
         
@@ -403,8 +440,23 @@ class ExcelIO:
         # Empty row for separation
         # Row 2 is empty
         
-        # Headers in row 3 - now with Commission column
-        headers = ["Symbol", "Quantity", "Price", "Avg Cost", "Tax Rate", "Target Weight", "Commission (€)"]
+        # Headers in row 3 - now with all commission columns
+        headers = [
+            "Symbol",
+            "Quantity",
+            "Price",
+            "Avg Cost",
+            "Tax Rate",
+            "Target Weight",
+            "Comm Buy Fixed",
+            "Comm Buy %",
+            "Comm Buy Min",
+            "Comm Buy Max",
+            "Comm Sell Fixed",
+            "Comm Sell %",
+            "Comm Sell Min",
+            "Comm Sell Max",
+        ]
         for col_idx, header in enumerate(headers, start=1):
             cell = sheet.cell(row=3, column=col_idx)
             cell.value = header
@@ -425,8 +477,25 @@ class ExcelIO:
             sheet[f"E{row_idx}"].number_format = '0.00%'
             sheet[f"F{row_idx}"] = asset.target_weight
             sheet[f"F{row_idx}"].number_format = '0.00%'
-            sheet[f"G{row_idx}"] = 0.0  # Commission default to 0
+            
+            # Commission fields
+            sheet[f"G{row_idx}"] = asset.commission_buy_fixed
             sheet[f"G{row_idx}"].number_format = '€#,##0.00'
+            sheet[f"H{row_idx}"] = asset.commission_buy_percent
+            sheet[f"H{row_idx}"].number_format = '0.000%'
+            sheet[f"I{row_idx}"] = asset.commission_buy_min
+            sheet[f"I{row_idx}"].number_format = '€#,##0.00'
+            sheet[f"J{row_idx}"] = asset.commission_buy_max
+            sheet[f"J{row_idx}"].number_format = '€#,##0.00'
+            
+            sheet[f"K{row_idx}"] = asset.commission_sell_fixed
+            sheet[f"K{row_idx}"].number_format = '€#,##0.00'
+            sheet[f"L{row_idx}"] = asset.commission_sell_percent
+            sheet[f"L{row_idx}"].number_format = '0.000%'
+            sheet[f"M{row_idx}"] = asset.commission_sell_min
+            sheet[f"M{row_idx}"].number_format = '€#,##0.00'
+            sheet[f"N{row_idx}"] = asset.commission_sell_max
+            sheet[f"N{row_idx}"].number_format = '€#,##0.00'
         
         # Adjust column widths
         self._adjust_column_widths(sheet)
