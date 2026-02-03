@@ -278,14 +278,14 @@ class ExcelIO:
             sheet[f"C{row}"].number_format = '0.00'
             
             # Value Change logic (CORRECTED):
-            # delta_value > 0 = portfolio value increases (BUY) → positive value, no sign issues
-            # delta_value < 0 = portfolio value decreases (SELL) → negative value, display negative in red
-            sheet[f"D{row}"] = asset.delta_value  # Use delta_value as-is
-            
+            # delta_value > 0 = portfolio value increases (BUY) → positive value
+            # delta_value < 0 = portfolio value decreases (SELL) → negative value, display as positive with minus sign
             if asset.delta_value < 0:  # SELL: portfolio value decreases (negative)
-                sheet[f"D{row}"].number_format = '-€#,##0.00'
+                sheet[f"D{row}"] = abs(asset.delta_value)  # Store absolute value
+                sheet[f"D{row}"].number_format = '-€#,##0.00'  # Display with minus
                 sheet[f"D{row}"].font = red_font
             else:  # BUY or HOLD: portfolio value increases or stays same (positive/zero)
+                sheet[f"D{row}"] = asset.delta_value  # Store as-is
                 sheet[f"D{row}"].number_format = '€#,##0.00'
             
             sheet[f"E{row}"] = asset.current_weight
