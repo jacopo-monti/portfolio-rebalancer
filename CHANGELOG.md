@@ -27,6 +27,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Asset.compute_cash_out()` now accounts for buy commissions
 - Excel I/O updated to support 14-column format (was 6 columns)
 - Commissions are treated as additional costs in cash flow calculation, like taxes
+- **Excel output Summary section reorganized** with new structure:
+  1. Cash available to invest (input)
+  2. Cash flow actually used (calculated)
+  3. Total cash in from sales
+  4. Total cash out for purchases
+  5. Total tax paid
+  6. Total commission on purchases
+  7. Total commission on sales
+  8. Total commissions
+  9. Total rebalancing cost (NEW: tax + commissions)
+  10. Total portfolio value before rebalancing
+  11. Total portfolio value after rebalancing
+  12. Max deviation from target
+- **Removed "Number of Operations" from Summary section** (still available via `RebalancingResult.num_operations` property)
 
 ### Technical Details
 
@@ -61,6 +75,8 @@ Cash Flow = (sale_proceeds - taxes - sell_commissions)
 - Commission functionality is fully tested with 20+ test cases
 - Supports common broker fee structures (fixed, percentage, tiered with min/max)
 - See `docs/BROKER_COMMISSIONS.md` for detailed usage examples
+- Excel Summary section now provides clearer distinction between input and calculated values
+- Total rebalancing cost metric helps users understand the full cost of rebalancing
 
 ### Planned
 - Web interface (planned for v0.2.0)
