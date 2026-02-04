@@ -3,7 +3,7 @@
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![Tests](https://github.com/jacopo-monti/portfolio-rebalancer/workflows/Tests/badge.svg)](https://github.com/jacopo-monti/portfolio-rebalancer/actions)
 
-A deterministic portfolio rebalancing tool with tax-aware calculations.
+A deterministic portfolio rebalancing tool with tax-aware calculations and broker commission support.
 
 ---
 
@@ -16,7 +16,7 @@ A deterministic portfolio rebalancing tool with tax-aware calculations.
 This is a mathematical calculation tool only. It:
 
 - ✅ **Computes mathematical operations** to bring a portfolio to predefined target percentages
-- ✅ **Accounts for constraints** like taxation, cash flow, and integer share requirements
+- ✅ **Accounts for constraints** like taxation, broker commissions, cash flow, and integer share requirements
 - ❌ **Does NOT optimize** returns, risk, or portfolio performance
 - ❌ **Does NOT make predictions** about markets, asset prices, or future performance
 - ❌ **Does NOT recommend** which assets to buy, sell, or hold
@@ -94,12 +94,17 @@ pip install .
 
 You need the following information for each asset in your portfolio:
 
+**Required:**
 - **Symbol**: Asset identifier (e.g., ticker symbol)
 - **Quantity**: Number of shares you currently own
 - **Price**: Current market price per share
 - **Average Cost**: Your average purchase price (for tax calculation)
 - **Tax Rate**: Capital gains tax rate as decimal (e.g., 0.26 for 26%)
 - **Target Weight**: Desired percentage of total portfolio (e.g., 0.60 for 60%)
+
+**Optional (broker commissions):**
+- **Buy/Sell Commissions**: Fixed fees and/or percentage-based fees with min/max bounds
+- See [docs/BROKER_COMMISSIONS.md](docs/BROKER_COMMISSIONS.md) for detailed information
 
 #### Step 2: Create a Python Script
 
@@ -182,7 +187,7 @@ python my_rebalance.py
 The output will show:
 1. **Current state**: Your portfolio before rebalancing
 2. **Operations needed**: Which assets to buy/sell and by how much
-3. **Cash flow**: Net cash required (should be close to zero)
+3. **Cash flow**: Net cash required (should be close to zero, or match available cash)
 4. **Post-rebalancing state**: Expected portfolio after operations
 5. **Deviations**: How close you'll be to your target weights
 
@@ -200,7 +205,7 @@ Create an Excel file with these columns:
 | AGGH   | 30       | 110   | 108      | 0.26     | 0.25          |
 | EIMI   | 20       | 135   | 130      | 0.26     | 0.15          |
 
-**Note**: Target weights must sum to 1.0 (100%)
+**Note**: Target weights must sum to 1.0 (100%). Commission columns are optional (see [BROKER_COMMISSIONS.md](docs/BROKER_COMMISSIONS.md)).
 
 #### Step 2: Load and Process
 
@@ -223,6 +228,32 @@ print("Results saved to rebalancing_result.xlsx")
 ```
 
 ### Advanced Options
+
+#### Broker Commissions
+
+You can specify broker transaction fees for each asset:
+
+```python
+Asset(
+    symbol="VWCE",
+    quantity=50.0,
+    price=100.0,
+    avg_cost=95.0,
+    tax_rate=0.26,
+    target_weight=0.60,
+    # Fixed + percentage commission with min/max bounds
+    commission_buy_fixed=2.50,      # €2.50 fixed fee
+    commission_buy_percent=0.001,   # + 0.1% of transaction
+    commission_buy_min=1.00,        # minimum €1.00
+    commission_buy_max=10.00,       # maximum €10.00
+    commission_sell_fixed=2.50,     # Same for sell
+    commission_sell_percent=0.001,
+    commission_sell_min=1.00,
+    commission_sell_max=10.00,
+)
+```
+
+See [docs/BROKER_COMMISSIONS.md](docs/BROKER_COMMISSIONS.md) for detailed documentation and examples.
 
 #### Rounding Policy
 
@@ -260,6 +291,7 @@ These deviations are reported in the results.
 **Problem**: Large cash flow imbalance
 - **Solution**: This can happen when:
   - Assets with large capital gains need to be sold (taxes reduce cash inflow)
+  - Broker commissions increase transaction costs
   - Portfolio is heavily imbalanced
   - Check your input data for errors
 
@@ -323,13 +355,15 @@ portfolio-rebalancer/
 │   ├── __init__.py
 │   ├── test_engine.py            # Engine tests
 │   ├── test_models.py            # Model tests
-│   └── test_policies.py          # Policy tests (future)
+│   └── test_commissions.py       # Commission tests
 ├── examples/                     # Example scripts
 │   ├── example_basic.py
-│   └── example_rounding.py
+│   ├── example_rounding.py
+│   └── example_with_commissions.py
 ├── docs/                         # Documentation
 │   ├── ALGORITHM.md
 │   ├── DESIGN.md
+│   ├── BROKER_COMMISSIONS.md
 │   └── CONTRIBUTING.md
 ├── .github/
 │   └── workflows/
@@ -485,22 +519,26 @@ Where `wᵢ` is the target weight:
 ΔQᵢ = ΔVᵢ / Pᵢ
 ```
 
-### Step 5: Cash Flow with Taxation
+### Step 5: Cash Flow with Taxation and Commissions
 
 For sales (`ΔQᵢ < 0`):
 ```
-cash_in = |ΔQᵢ| × (Pᵢ − T × max(0, Pᵢ − PMCᵢ))
+cash_in = |ΔQᵢ| × (Pᵢ − T × max(0, Pᵢ − PMCᵢ)) − C_sell
 ```
 
 Where:
 - `PMCᵢ` = average cost basis (purchase price)
 - `T` = tax rate (e.g., 0.26 for 26%)
+- `C_sell` = sell commission (fixed + percentage with min/max bounds)
 - Tax is applied only on capital gains: `(Pᵢ − PMCᵢ)`
 
 For purchases (`ΔQᵢ > 0`):
 ```
-cash_out = ΔQᵢ × Pᵢ
+cash_out = ΔQᵢ × Pᵢ + C_buy
 ```
+
+Where:
+- `C_buy` = buy commission (fixed + percentage with min/max bounds)
 
 Total cash flow:
 ```
@@ -535,6 +573,7 @@ For detailed algorithm documentation, see [docs/ALGORITHM.md](docs/ALGORITHM.md)
 ## 📚 Documentation
 
 - [ALGORITHM.md](docs/ALGORITHM.md) - Detailed algorithm with all formulas
+- [BROKER_COMMISSIONS.md](docs/BROKER_COMMISSIONS.md) - Broker commission guide with examples
 - [DESIGN.md](docs/DESIGN.md) - Design decisions and rationale
 - [CONTRIBUTING.md](docs/CONTRIBUTING.md) - Contribution guidelines
 

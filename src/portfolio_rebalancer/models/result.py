@@ -15,8 +15,8 @@ class RebalancingResult:
         total_value_before: Total portfolio value before rebalancing
         total_value_after: Total portfolio value after rebalancing
         cash_flow: Net cash flow (positive = surplus, negative = deficit)
-        total_cash_in: Total cash from sales (after tax)
-        total_cash_out: Total cash for purchases
+        total_cash_in: Total cash from sales (after tax and commission)
+        total_cash_out: Total cash for purchases (including commission)
         metadata: Additional information about the rebalancing
     """
     
@@ -55,6 +55,45 @@ class RebalancingResult:
         return total_tax
     
     @property
+    def total_commission_buy(self) -> float:
+        """Calculate total commissions paid on buy operations."""
+        total_commission = 0.0
+        for asset in self.assets:
+            if asset.delta_quantity > 1e-6:  # Buying
+                # Calculate what the cash out would be without commission
+                purchase_cost = asset.delta_quantity * asset.price
+                # Total cash out includes commission
+                cash_out_with_commission = asset.compute_cash_out(asset.delta_quantity)
+                # Commission is the difference
+                commission = cash_out_with_commission - purchase_cost
+                total_commission += commission
+        return total_commission
+    
+    @property
+    def total_commission_sell(self) -> float:
+        """Calculate total commissions paid on sell operations."""
+        total_commission = 0.0
+        for asset in self.assets:
+            if asset.delta_quantity < -1e-6:  # Selling
+                qty_sold = abs(asset.delta_quantity)
+                # Gross proceeds
+                gross_proceeds = qty_sold * asset.price
+                # Tax paid
+                taxable_gain_per_share = max(0, asset.capital_gain_per_share)
+                tax_paid = qty_sold * taxable_gain_per_share * asset.tax_rate
+                # Actual cash in (after tax and commission)
+                cash_in_after_all = asset.compute_cash_in(qty_sold)
+                # Commission is: gross - tax - cash_in
+                commission = gross_proceeds - tax_paid - cash_in_after_all
+                total_commission += commission
+        return total_commission
+    
+    @property
+    def total_commission(self) -> float:
+        """Calculate total commissions paid (buy + sell)."""
+        return self.total_commission_buy + self.total_commission_sell
+    
+    @property
     def max_deviation(self) -> float:
         """Get maximum absolute deviation from target after rebalancing."""
         if not self.assets:
@@ -86,6 +125,7 @@ class RebalancingResult:
             f"Operazioni: {self.num_buys} acquisti, {self.num_sells} vendite",
             f"Cash flow: €{self.cash_flow:,.2f}",
             f"Tasse pagate: €{self.total_tax_paid:,.2f}",
+            f"Commissioni pagate: €{self.total_commission:,.2f}",
             f"Deviazione massima: {self.max_deviation * 100:.2f}%",
             "",
             "Operazioni:",

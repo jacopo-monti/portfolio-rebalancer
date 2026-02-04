@@ -7,8 +7,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Broker commission support**: Assets can now specify transaction fees for buy and sell operations
+  - `commission_buy_fixed`: Fixed fee per buy transaction
+  - `commission_buy_percent`: Percentage fee on buy transactions (e.g., 0.001 = 0.1%)
+  - `commission_buy_min`: Minimum commission for percentage-based buy fees
+  - `commission_buy_max`: Maximum commission for percentage-based buy fees
+  - `commission_sell_fixed`: Fixed fee per sell transaction
+  - `commission_sell_percent`: Percentage fee on sell transactions
+  - `commission_sell_min`: Minimum commission for percentage-based sell fees
+  - `commission_sell_max`: Maximum commission for percentage-based sell fees
+- Excel I/O support for commission fields (8 new columns)
+- Comprehensive test suite for commission functionality (`tests/test_commissions.py`)
+- Detailed documentation in `docs/BROKER_COMMISSIONS.md`
+
+### Changed
+- `Asset` model extended with 8 commission fields (all default to 0.0)
+- `Asset.compute_cash_in()` now accounts for sell commissions
+- `Asset.compute_cash_out()` now accounts for buy commissions
+- Excel I/O updated to support 14-column format (was 6 columns)
+- Commissions are treated as additional costs in cash flow calculation, like taxes
+- **Excel output Summary section reorganized** with new structure:
+  1. Cash available to invest (input)
+  2. Cash flow actually used (calculated)
+  3. Total cash in from sales
+  4. Total cash out for purchases
+  5. Total tax paid
+  6. Total commission on purchases
+  7. Total commission on sales
+  8. Total commissions
+  9. Total rebalancing cost (NEW: tax + commissions)
+  10. Total portfolio value before rebalancing
+  11. Total portfolio value after rebalancing
+  12. Max deviation from target
+- **Removed "Number of Operations" from Summary section** (still available via `RebalancingResult.num_operations` property)
+
+### Technical Details
+
+#### Commission Calculation
+Commissions are calculated using a flexible formula:
+```python
+# 1. Calculate percentage commission
+percentage_commission = operation_value × percent_rate
+
+# 2. Apply min/max bounds (if specified)
+if min > 0: percentage_commission = max(percentage_commission, min)
+if max > 0: percentage_commission = min(percentage_commission, max)
+
+# 3. Add fixed commission
+total_commission = bounded_percentage_commission + fixed_commission
+```
+
+#### Cash Flow Impact
+Cash flow formula now includes commissions:
+```
+Cash Flow = (sale_proceeds - taxes - sell_commissions) 
+          - (purchase_costs + buy_commissions)
+```
+
+#### Backward Compatibility
+- All commission fields default to 0.0
+- Existing code without commission fields works unchanged
+- Old Excel files (6 columns) are still supported
+- Zero commissions produce identical results to previous versions
+
+### Notes
+- Commission functionality is fully tested with 20+ test cases
+- Supports common broker fee structures (fixed, percentage, tiered with min/max)
+- See `docs/BROKER_COMMISSIONS.md` for detailed usage examples
+- Excel Summary section now provides clearer distinction between input and calculated values
+- Total rebalancing cost metric helps users understand the full cost of rebalancing
+
 ### Planned
-- Excel I/O module
 - Web interface (planned for v0.2.0)
 - Multi-currency support (planned for v0.3.0)
 
