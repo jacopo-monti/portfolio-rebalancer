@@ -214,31 +214,23 @@ class ExcelIO:
         sheet["A1"].font = title_font
         sheet.merge_cells("A1:H1")
         
-        # Summary section
+        # Summary section - REORGANIZED
         row = 3
         sheet[f"A{row}"] = "Summary"
         sheet[f"A{row}"].font = section_font
         
+        # 1. Cash available to invest (input value)
         row += 1
         cash_available = result.metadata.get("cash_available", 0.0)
-        if cash_available > 0:
-            sheet[f"A{row}"] = "Cash Available to Invest:"
-            sheet[f"B{row}"] = cash_available
-            sheet[f"B{row}"].number_format = '€#,##0.00'
-            row += 1
-        
-        sheet[f"A{row}"] = "Total Portfolio Value Before:"
-        sheet[f"B{row}"] = result.total_value_before
+        sheet[f"A{row}"] = "Cash available to invest:"
+        sheet[f"B{row}"] = cash_available
         sheet[f"B{row}"].number_format = '€#,##0.00'
         
+        # 2. Cash flow actually used (computed value)
         row += 1
-        sheet[f"A{row}"] = "Total Portfolio Value After:"
-        sheet[f"B{row}"] = result.total_value_after
-        sheet[f"B{row}"].number_format = '€#,##0.00'
-        
-        row += 1
-        sheet[f"A{row}"] = "Cash Flow Required:"
-        # Cash flow: negative = need to add money (red), positive = money freed (black)
+        sheet[f"A{row}"] = "Cash flow actually used:"
+        # Cash flow: negative = money added, positive = money freed
+        # We want to show how much cash was actually used (absolute value with sign)
         if result.cash_flow < 0:
             sheet[f"B{row}"] = abs(result.cash_flow)  # Store as positive
             sheet[f"B{row}"].number_format = '-€#,##0.00'  # Display with minus
@@ -247,75 +239,96 @@ class ExcelIO:
             sheet[f"B{row}"] = result.cash_flow
             sheet[f"B{row}"].number_format = '€#,##0.00'
         
+        # 3. Total cash in from sales
         row += 1
-        sheet[f"A{row}"] = "Total Cash In (from sales):"
+        sheet[f"A{row}"] = "Total cash in from sales:"
         sheet[f"B{row}"] = result.total_cash_in
         sheet[f"B{row}"].number_format = '€#,##0.00'
         
+        # 4. Total cash out for purchases
         row += 1
-        sheet[f"A{row}"] = "Total Cash Out (for purchases):"
-        # total_cash_out is stored as positive, show as negative in red
+        sheet[f"A{row}"] = "Total cash out for purchases:"
         if result.total_cash_out > 0:
-            sheet[f"B{row}"] = result.total_cash_out  # Store as positive
-            sheet[f"B{row}"].number_format = '-€#,##0.00'  # Display with minus
+            sheet[f"B{row}"] = result.total_cash_out
+            sheet[f"B{row}"].number_format = '-€#,##0.00'
             sheet[f"B{row}"].font = red_font
         else:
             sheet[f"B{row}"] = 0.0
             sheet[f"B{row}"].number_format = '€#,##0.00'
         
+        # 5. Total tax paid
         row += 1
-        sheet[f"A{row}"] = "Total Tax Paid:"
-        # Tax is stored as positive, show as negative in red
+        sheet[f"A{row}"] = "Total tax paid:"
         if result.total_tax_paid > 0:
-            sheet[f"B{row}"] = result.total_tax_paid  # Store as positive
-            sheet[f"B{row}"].number_format = '-€#,##0.00'  # Display with minus
+            sheet[f"B{row}"] = result.total_tax_paid
+            sheet[f"B{row}"].number_format = '-€#,##0.00'
             sheet[f"B{row}"].font = red_font
         else:
             sheet[f"B{row}"] = 0.0
             sheet[f"B{row}"].number_format = '€#,##0.00'
         
-        # Commission summary section
+        # 6. Total commission on purchases
         row += 1
-        sheet[f"A{row}"] = "Total Commission on Purchases:"
-        # Commission is a cost, show as negative in red
+        sheet[f"A{row}"] = "Total commission on purchases:"
         if result.total_commission_buy > 0:
-            sheet[f"B{row}"] = result.total_commission_buy  # Store as positive
-            sheet[f"B{row}"].number_format = '-€#,##0.00'  # Display with minus
+            sheet[f"B{row}"] = result.total_commission_buy
+            sheet[f"B{row}"].number_format = '-€#,##0.00'
             sheet[f"B{row}"].font = red_font
         else:
             sheet[f"B{row}"] = 0.0
             sheet[f"B{row}"].number_format = '€#,##0.00'
         
+        # 7. Total commission on sales
         row += 1
-        sheet[f"A{row}"] = "Total Commission on Sales:"
-        # Commission is a cost, show as negative in red
+        sheet[f"A{row}"] = "Total commission on sales:"
         if result.total_commission_sell > 0:
-            sheet[f"B{row}"] = result.total_commission_sell  # Store as positive
-            sheet[f"B{row}"].number_format = '-€#,##0.00'  # Display with minus
+            sheet[f"B{row}"] = result.total_commission_sell
+            sheet[f"B{row}"].number_format = '-€#,##0.00'
             sheet[f"B{row}"].font = red_font
         else:
             sheet[f"B{row}"] = 0.0
             sheet[f"B{row}"].number_format = '€#,##0.00'
         
+        # 8. Total commissions
         row += 1
-        sheet[f"A{row}"] = "Total Commissions:"
-        # Total commission is a cost, show as negative in red
+        sheet[f"A{row}"] = "Total commissions:"
         if result.total_commission > 0:
-            sheet[f"B{row}"] = result.total_commission  # Store as positive
-            sheet[f"B{row}"].number_format = '-€#,##0.00'  # Display with minus
+            sheet[f"B{row}"] = result.total_commission
+            sheet[f"B{row}"].number_format = '-€#,##0.00'
             sheet[f"B{row}"].font = red_font
         else:
             sheet[f"B{row}"] = 0.0
             sheet[f"B{row}"].number_format = '€#,##0.00'
         
+        # 9. Total rebalancing cost (NEW METRIC)
         row += 1
-        sheet[f"A{row}"] = "Max Deviation from Target:"
+        total_rebalancing_cost = result.total_tax_paid + result.total_commission
+        sheet[f"A{row}"] = "Total rebalancing cost:"
+        if total_rebalancing_cost > 0:
+            sheet[f"B{row}"] = total_rebalancing_cost
+            sheet[f"B{row}"].number_format = '-€#,##0.00'
+            sheet[f"B{row}"].font = red_font
+        else:
+            sheet[f"B{row}"] = 0.0
+            sheet[f"B{row}"].number_format = '€#,##0.00'
+        
+        # 10. Total portfolio value before rebalancing
+        row += 1
+        sheet[f"A{row}"] = "Total portfolio value before rebalancing:"
+        sheet[f"B{row}"] = result.total_value_before
+        sheet[f"B{row}"].number_format = '€#,##0.00'
+        
+        # 11. Total portfolio value after rebalancing
+        row += 1
+        sheet[f"A{row}"] = "Total portfolio value after rebalancing:"
+        sheet[f"B{row}"] = result.total_value_after
+        sheet[f"B{row}"].number_format = '€#,##0.00'
+        
+        # 12. Max deviation from target
+        row += 1
+        sheet[f"A{row}"] = "Max deviation from target:"
         sheet[f"B{row}"] = result.max_deviation
         sheet[f"B{row}"].number_format = '0.00%'
-        
-        row += 1
-        sheet[f"A{row}"] = "Number of Operations:"
-        sheet[f"B{row}"] = result.num_operations
         
         # Operations section - simplified (removed Current Qty, New Qty, Target Weight)
         row += 3
