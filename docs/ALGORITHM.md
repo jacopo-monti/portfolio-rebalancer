@@ -1,60 +1,61 @@
-# Algoritmo di Ribilanciamento
+# Portfolio Rebalancing Algorithm
 
-Questo documento descrive in dettaglio l'algoritmo implementato nel sistema.
+This document provides a detailed description of the algorithm implemented in the system.
 
-## Panoramica
+## Overview
 
-L'algoritmo di ribilanciamento è un processo deterministico in 8 step che trasforma un portafoglio dallo stato attuale allo stato target, rispettando vincoli pratici.
+The rebalancing algorithm is a deterministic 8-step process that transforms a portfolio from its current state to the target state while respecting practical constraints.
 
-**Caratteristiche chiave**:
-- ✅ Deterministico (stesso input → stesso output)
-- ✅ Senza ottimizzazione numerica complessa
-- ✅ Trasparente e spiegabile
-- ✅ Tax-aware (gestione capital gain tax)
-- ✅ Cash-flow neutral (cerca CF ≈ 0)
+**Key characteristics**:
+- ✅ Deterministic (same input → same output)
+- ✅ No complex numerical optimization
+- ✅ Transparent and explainable
+- ✅ Tax-aware (capital gains tax handling)
+- ✅ Commission-aware (broker fees included)
+- ✅ Cash-flow neutral or cash-deployment capable
 
 ---
 
-## Step 1: Calcolo dello Stato Attuale
+## Step 1: Current State Computation
 
-### Obiettivo
-Quantificare il valore e i pesi attuali di ogni strumento nel portafoglio.
+### Objective
+Quantify the current value and weights of each instrument in the portfolio.
 
-### Formule
+### Formulas
 
-Per ogni strumento *i*:
+For each instrument *i*:
 
 ```
 Vᵢ = Qᵢ × Pᵢ
 ```
 
-Dove:
-- `Vᵢ` = valore attuale dello strumento *i* (€)
-- `Qᵢ` = quantità di quote possedute
-- `Pᵢ` = prezzo corrente per quota (€)
+Where:
+- `Vᵢ` = current value of instrument *i* (€)
+- `Qᵢ` = quantity of shares owned
+- `Pᵢ` = current price per share (€)
 
-Valore totale del portafoglio:
+Total portfolio value:
 
 ```
 V_tot = Σᵢ₌₁ᴺ Vᵢ
 ```
 
-Peso percentuale attuale:
+Current percentage weight:
 
 ```
 ŵᵢ = Vᵢ / V_tot
 ```
 
-### Esempio
+### Example
 
 | Asset | Qᵢ | Pᵢ | Vᵢ | ŵᵢ |
-|-------|-----|-----|-----|-----|
+|-------|-----|-----|-----|--------|
 | VWCE | 50 | 100 | 5,000 | 45.45% |
 | AGGH | 30 | 110 | 3,300 | 30.00% |
 | EIMI | 20 | 135 | 2,700 | 24.55% |
-| **TOTALE** | | | **11,000** | **100%** |
+| **TOTAL** | | | **11,000** | **100%** |
 
-### Codice Python
+### Python Code
 
 ```python
 def compute_current_state(portfolio):
@@ -71,10 +72,10 @@ def compute_current_state(portfolio):
 
 ---
 
-## Step 2: Calcolo delle Deviazioni
+## Step 2: Deviation Computation
 
-### Obiettivo
-Identificare quali asset sono sovrapesati (da vendere) e quali sono sottopesati (da comprare).
+### Objective
+Identify which assets are overweight (to be sold) and which are underweight (to be bought).
 
 ### Formula
 
@@ -82,21 +83,21 @@ Identificare quali asset sono sovrapesati (da vendere) e quali sono sottopesati 
 Δwᵢ = ŵᵢ − wᵢ
 ```
 
-### Interpretazione
+### Interpretation
 
-- **Δwᵢ > 0**: Strumento sovrapesato → da vendere
-- **Δwᵢ < 0**: Strumento sottopesato → da comprare
-- **Δwᵢ = 0**: Strumento già a target → nessuna azione
+- **Δwᵢ > 0**: Overweight instrument → sell
+- **Δwᵢ < 0**: Underweight instrument → buy
+- **Δwᵢ = 0**: Instrument at target → no action
 
-### Esempio
+### Example
 
-| Asset | ŵᵢ | wᵢ (target) | Δwᵢ | Azione |
-|-------|-----|-------------|-----|--------|
-| VWCE | 45.45% | 60% | −14.55% | Comprare |
-| AGGH | 30.00% | 25% | +5.00% | Vendere |
-| EIMI | 24.55% | 15% | +9.55% | Vendere |
+| Asset | ŵᵢ | wᵢ (target) | Δwᵢ | Action |
+|-------|-----|-------------|--------|--------|
+| VWCE | 45.45% | 60% | −14.55% | Buy |
+| AGGH | 30.00% | 25% | +5.00% | Sell |
+| EIMI | 24.55% | 15% | +9.55% | Sell |
 
-### Codice Python
+### Python Code
 
 ```python
 def compute_deviations(portfolio):
@@ -110,48 +111,58 @@ def compute_deviations(portfolio):
 
 ---
 
-## Step 3: Calcolo del Valore Target
+## Step 3: Target Value Computation
 
-### Obiettivo
-Trasformare le deviazioni percentuali in variazioni di valore in euro.
+### Objective
+Transform percentage deviations into value changes in euros.
 
 ### Formula
 
 ```
-ΔVᵢ = (wᵢ × V_tot) − Vᵢ
+ΔVᵢ = (wᵢ × V_target) − Vᵢ
 ```
 
-Alternativamente:
+Where:
+```
+V_target = V_tot + C_available
+```
+
+- `V_target` = target total portfolio value
+- `C_available` = available cash to deploy (if any)
+
+Alternatively:
 
 ```
-ΔVᵢ = Δwᵢ × V_tot
+ΔVᵢ = (wᵢ × V_target) − (ŵᵢ × V_tot)
 ```
 
-### Esempio
+### Example
+
+Assuming no additional cash available (`C_available = 0`):
 
 | Asset | wᵢ | V_tot | Vᵢ | ΔVᵢ |
-|-------|-----|-------|-----|-----|
+|-------|-----|-------|-----|---------|
 | VWCE | 60% | 11,000 | 5,000 | +1,600 |
 | AGGH | 25% | 11,000 | 3,300 | −550 |
 | EIMI | 15% | 11,000 | 2,700 | −1,050 |
 
-**Verifica**: Σᵢ ΔVᵢ = 1,600 − 550 − 1,050 = 0 ✅
+**Verification**: Σᵢ ΔVᵢ = 1,600 − 550 − 1,050 = 0 ✅
 
-### Codice Python
+### Python Code
 
 ```python
-def compute_target_values(portfolio, total_value):
+def compute_target_values(portfolio, target_total_value):
     for asset in portfolio.assets:
-        target_value = asset.target_weight * total_value
+        target_value = asset.target_weight * target_total_value
         asset.delta_value = target_value - asset.current_value
 ```
 
 ---
 
-## Step 4: Conversione in Quote
+## Step 4: Quantity Conversion
 
-### Obiettivo
-Trasformare le variazioni di valore in quantità di quote da comprare/vendere.
+### Objective
+Transform value changes into quantities of shares to buy/sell.
 
 ### Formula
 
@@ -159,15 +170,15 @@ Trasformare le variazioni di valore in quantità di quote da comprare/vendere.
 ΔQᵢ = ΔVᵢ / Pᵢ
 ```
 
-### Esempio
+### Example
 
 | Asset | ΔVᵢ | Pᵢ | ΔQᵢ |
-|-------|-----|-----|-----|
+|-------|-----|-----|---------|
 | VWCE | +1,600 | 100 | +16.00 |
 | AGGH | −550 | 110 | −5.00 |
 | EIMI | −1,050 | 135 | −7.78 |
 
-### Codice Python
+### Python Code
 
 ```python
 def compute_quantity_changes(portfolio):
@@ -177,59 +188,81 @@ def compute_quantity_changes(portfolio):
 
 ---
 
-## Step 5: Calcolo del Cash Flow con Tassazione
+## Step 5: Cash Flow Computation with Taxation and Commissions
 
-### Obiettivo
-Determinare la liquidità generata dalle vendite (al netto delle tasse) e quella necessaria per gli acquisti.
+### Objective
+Determine the cash generated from sales (net of taxes and commissions) and the cash required for purchases (including commissions).
 
-### Formule
+### Formulas
 
-#### Per vendite (ΔQᵢ < 0)
-
-```
-cash_inᵢ = |ΔQᵢ| × Pᵢ × (1 − Tᵢ × max(0, Pᵢ − PMCᵢ))
-```
-
-**Spiegazione dettagliata**:
-
-1. `|ΔQᵢ| × Pᵢ` = ricavo lordo della vendita
-2. `Pᵢ − PMCᵢ` = capital gain per quota (può essere negativo)
-3. `max(0, Pᵢ − PMCᵢ)` = capital gain tassabile (solo se > 0)
-4. `Tᵢ × max(0, Pᵢ − PMCᵢ)` = tassa per quota
-5. `1 − Tᵢ × max(0, Pᵢ − PMCᵢ)` = fattore di ritenzione
-
-**Casi speciali**:
-- Se `Pᵢ ≤ PMCᵢ` (vendita in perdita): `cash_inᵢ = |ΔQᵢ| × Pᵢ` (nessuna tassa)
-- Se `Pᵢ > PMCᵢ` (vendita in guadagno): si applica la tassazione sul capital gain
-
-#### Per acquisti (ΔQᵢ > 0)
+#### For sales (ΔQᵢ < 0)
 
 ```
-cash_outᵢ = ΔQᵢ × Pᵢ
+cash_inᵢ = |ΔQᵢ| × Pᵢ − |ΔQᵢ| × Tᵢ × max(0, Pᵢ − PMCᵢ) − Cₛₑₗₗ,ᵢ
 ```
 
-(Nessuna complicazione: paghi il prezzo di mercato)
+Or in factored form:
+```
+cash_inᵢ = |ΔQᵢ| × (Pᵢ − Tᵢ × max(0, Pᵢ − PMCᵢ)) − Cₛₑₗₗ,ᵢ
+```
 
-#### Cash flow totale
+**Detailed explanation**:
+
+1. `|ΔQᵢ| × Pᵢ` = gross proceeds from sale
+2. `Pᵢ − PMCᵢ` = capital gain per share (can be negative)
+3. `max(0, Pᵢ − PMCᵢ)` = taxable capital gain per share (only if positive)
+4. `Tᵢ × max(0, Pᵢ − PMCᵢ)` = tax per share
+5. `|ΔQᵢ| × Tᵢ × max(0, Pᵢ − PMCᵢ)` = total capital gains tax
+6. `Cₛₑₗₗ,ᵢ` = broker commission for selling
+
+**Special cases**:
+- If `Pᵢ ≤ PMCᵢ` (selling at a loss): `cash_inᵢ = |ΔQᵢ| × Pᵢ − Cₛₑₗₗ,ᵢ` (no tax)
+- If `Pᵢ > PMCᵢ` (selling at a profit): capital gains tax applies
+
+#### Broker commission calculation
+
+Commissions are calculated as:
+```
+C = Cₓᵢₓₑ𝒹 + bounded(V_operation × Pₚₑᵣcₑₙₜ, Cₘᵢₙ, Cₘₐₓ)
+```
+
+Where:
+- `Cₓᵢₓₑ𝒹` = fixed commission component
+- `Pₚₑᵣcₑₙₜ` = percentage commission rate
+- `Cₘᵢₙ`, `Cₘₐₓ` = min/max bounds for percentage component
+- `V_operation` = operation value (quantity × price)
+
+#### For purchases (ΔQᵢ > 0)
+
+```
+cash_outᵢ = ΔQᵢ × Pᵢ + Cᵦᵤᵧ,ᵢ
+```
+
+Where `Cᵦᵤᵧ,ᵢ` = broker commission for buying (calculated as above)
+
+#### Total cash flow
 
 ```
 CF = Σᵢ cash_inᵢ − Σᵢ cash_outᵢ
 ```
 
-### Esempio
+### Example
 
-**Ipotesi**: PMC di AGGH = 108, PMC di EIMI = 130, T = 26%
+**Assumptions**: 
+- Average cost: AGGH = 108, EIMI = 130
+- Tax rate: T = 26%
+- No broker commissions (for simplicity)
 
-| Asset | ΔQᵢ | Tipo | Calcolo | Cash |
-|-------|-----|------|---------|------|
-| VWCE | +16.00 | Acquisto | 16 × 100 | −1,600.00 |
-| AGGH | −5.00 | Vendita | 5 × 110 × (1 − 0.26×2) | +537.40 |
-| EIMI | −7.78 | Vendita | 7.78 × 135 × (1 − 0.26×5) | +932.86 |
-| **CF** | | | | **−129.74** |
+| Asset | ΔQᵢ | Type | Calculation | Cash |
+|-------|-----|------|-------------|-----------|
+| VWCE | +16.00 | Purchase | 16 × 100 | −1,600.00 |
+| AGGH | −5.00 | Sale | 5 × (110 − 0.26×2) | +547.40 |
+| EIMI | −7.78 | Sale | 7.78 × (135 − 0.26×5) | +1,040.77 |
+| **CF** | | | | **−11.83** |
 
-**Risultato**: CF = −129.74€ (deficit)
+**Result**: CF = −11.83€ (small deficit)
 
-### Codice Python
+### Python Code
 
 ```python
 def compute_cash_flow(portfolio):
@@ -237,93 +270,100 @@ def compute_cash_flow(portfolio):
     cash_out = 0
     
     for asset in portfolio.assets:
-        if asset.delta_quantity < 0:  # Vendita
+        if asset.delta_quantity < 0:  # Sale
             qty_sold = abs(asset.delta_quantity)
-            capital_gain = max(0, asset.price - asset.avg_cost)
-            tax_factor = 1 - asset.tax_rate * capital_gain
-            cash_in += qty_sold * asset.price * tax_factor
+            cash_in += asset.compute_cash_in(qty_sold)
         
-        elif asset.delta_quantity > 0:  # Acquisto
-            cash_out += asset.delta_quantity * asset.price
+        elif asset.delta_quantity > 0:  # Purchase
+            cash_out += asset.compute_cash_out(asset.delta_quantity)
     
     return cash_in - cash_out
 ```
 
 ---
 
-## Step 6: Chiusura del Cash Flow
+## Step 6: Cash Flow Closure
 
-### Obiettivo
-Azzerare (o minimizzare) il cash flow per evitare apporti/prelievi esterni.
+### Objective
+Balance the cash flow to either achieve neutrality (CF ≈ 0) or deploy available cash (CF = −C_available).
 
-### Problema
+### Problem
 
-Se CF ≠ 0:
-- CF < 0: servono più soldi per comprare di quanti ne generano le vendite
-- CF > 0: le vendite generano più liquidità del necessario
+If CF ≠ CF_target:
+- CF < CF_target: need more money for purchases than sales generate
+- CF > CF_target: sales generate more cash than needed
 
-### Soluzione: Scalatura Proporzionale
+Where:
+```
+CF_target = −C_available
+```
 
-**Idea**: Scalare proporzionalmente solo gli acquisti per bilanciare il CF.
+- If `C_available = 0`: target is CF = 0 (cash-neutral rebalancing)
+- If `C_available > 0`: target is CF = −C_available (deploy available cash)
+
+### Solution: Proportional Scaling
+
+**Concept**: Scale purchases proportionally to balance the cash flow.
 
 **Formula**:
 
 ```
-ΔQᵢ,adjusted = ΔQᵢ × (1 + CF / Σⱼ cash_outⱼ)    per ΔQᵢ > 0
-ΔQᵢ,adjusted = ΔQᵢ                                  per ΔQᵢ ≤ 0
+ΔQᵢ,adjusted = ΔQᵢ × (1 + (CF − CF_target) / Σⱼ cash_outⱼ)    for ΔQᵢ > 0
+ΔQᵢ,adjusted = ΔQᵢ                                            for ΔQᵢ ≤ 0
 ```
 
-**Nota**: Usiamo `1 + CF/total_cash_out` perché:
-- Se CF < 0 (deficit), il fattore < 1 → riduciamo gli acquisti
-- Se CF > 0 (surplus), il fattore > 1 → aumentiamo gli acquisti
+**Rationale**: Using `1 + (CF − CF_target)/total_cash_out` because:
+- If CF > CF_target (surplus), the factor > 1 → increase purchases
+- If CF < CF_target (deficit), the factor < 1 → decrease purchases
 
-### Esempio
+### Example
 
-Dal nostro esempio: CF = −129.74€, cash_out_tot = 1,600€
+From our example: CF = −11.83€, cash_out_total = 1,600€, C_available = 0
+
+Target: CF_target = 0
 
 ```
-fattore = 1 + (−129.74 / 1,600) = 1 − 0.081 = 0.919
+factor = 1 + (−11.83 − 0) / 1,600 = 1 − 0.0074 = 0.9926
 ```
 
-Nuove quantità:
+Adjusted quantities:
 
-| Asset | ΔQᵢ originale | Tipo | ΔQᵢ,adjusted |
-|-------|---------------|------|---------------|
-| VWCE | +16.00 | Acquisto | 16.00 × 0.919 = 14.70 |
-| AGGH | −5.00 | Vendita | −5.00 (invariato) |
-| EIMI | −7.78 | Vendita | −7.78 (invariato) |
+| Asset | ΔQᵢ original | Type | ΔQᵢ,adjusted |
+|-------|--------------|------|------------------|
+| VWCE | +16.00 | Purchase | 16.00 × 0.9926 = 15.88 |
+| AGGH | −5.00 | Sale | −5.00 (unchanged) |
+| EIMI | −7.78 | Sale | −7.78 (unchanged) |
 
-**Nuovo CF**: 537.40 + 932.86 − (14.70 × 100) ≈ 0 ✅
+**New CF**: 547.40 + 1,040.77 − (15.88 × 100) ≈ 0 ✅
 
-### Perché non ottimizzazione complessa?
+### Why Not Complex Optimization?
 
-Potremmo usare solver numerici per distribuire l'aggiustamento in modo "ottimale", ma:
-- Aggiungerebbe complessità
-- Non sarebbe più deterministico
-- La differenza pratica è minima
-- Violterebbe la filosofia di semplicità del progetto
+We could use numerical solvers to distribute the adjustment "optimally," but:
+- Would add complexity
+- Would no longer be deterministic
+- Practical difference is minimal
+- Would violate the project's simplicity philosophy
 
-### Codice Python
+### Python Code
 
 ```python
-def close_cash_flow(portfolio, cash_flow):
-    if abs(cash_flow) < 0.01:  # Tolleranza
-        return  # Già bilanciato
-    
-    # Calcola totale cash out
-    total_cash_out = sum(
-        asset.delta_quantity * asset.price
-        for asset in portfolio.assets
-        if asset.delta_quantity > 0
-    )
-    
+def close_cash_flow(portfolio, cash_flow, total_cash_out, cash_available):
     if total_cash_out == 0:
-        return  # Non ci sono acquisti da scalare
+        return  # No purchases to scale
     
-    # Fattore di scalatura
-    scale_factor = 1 + cash_flow / total_cash_out
+    # Target cash flow: negative of available cash (we want to spend it)
+    target_cash_flow = -cash_available
     
-    # Applica solo agli acquisti
+    # Check if already at target (with tolerance)
+    cash_flow_diff = cash_flow - target_cash_flow
+    relative_tolerance = 1e-10
+    if abs(cash_flow_diff / total_cash_out) < relative_tolerance:
+        return  # Already balanced
+    
+    # Scale factor for purchases
+    scale_factor = 1 + cash_flow_diff / total_cash_out
+    
+    # Apply only to purchases
     for asset in portfolio.assets:
         if asset.delta_quantity > 0:
             asset.delta_quantity *= scale_factor
@@ -331,12 +371,12 @@ def close_cash_flow(portfolio, cash_flow):
 
 ---
 
-## Step 7: Simulazione Post-Ribilanciamento
+## Step 7: Post-Rebalancing Simulation
 
-### Obiettivo
-Calcolare lo stato del portafoglio dopo aver applicato le operazioni.
+### Objective
+Calculate the portfolio state after applying the operations.
 
-### Formule
+### Formulas
 
 ```
 Qᵢ,new = Qᵢ + ΔQᵢ,adjusted
@@ -345,18 +385,18 @@ V_tot,new = Σᵢ Vᵢ,new
 ŵᵢ,new = Vᵢ,new / V_tot,new
 ```
 
-### Esempio
+### Example
 
 | Asset | Qᵢ | ΔQᵢ | Qᵢ,new | Vᵢ,new | ŵᵢ,new | wᵢ (target) |
 |-------|-----|-----|--------|--------|--------|-------------|
-| VWCE | 50 | +14.70 | 64.70 | 6,470 | 59.50% | 60% |
-| AGGH | 30 | −5.00 | 25.00 | 2,750 | 25.29% | 25% |
-| EIMI | 20 | −7.78 | 12.22 | 1,650 | 15.17% | 15% |
-| **TOT** | | | | **10,870** | **100%** | **100%** |
+| VWCE | 50 | +15.88 | 65.88 | 6,588 | 60.00% | 60% |
+| AGGH | 30 | −5.00 | 25.00 | 2,750 | 25.04% | 25% |
+| EIMI | 20 | −7.78 | 12.22 | 1,650 | 15.02% | 15% |
+| **TOT** | | | | **10,988** | **100%** | **100%** |
 
-**Osservazione**: Non siamo perfettamente a target, ma molto vicini!
+**Observation**: Very close to target weights!
 
-### Codice Python
+### Python Code
 
 ```python
 def simulate_post_rebalancing(portfolio):
@@ -381,48 +421,48 @@ def simulate_post_rebalancing(portfolio):
 
 ---
 
-## Step 8: Arrotondamento a Quote Intere
+## Step 8: Rounding to Integer Shares
 
-### Obiettivo
-Adattare le quantità continue a quote intere (quando richiesto).
+### Objective
+Adapt continuous quantities to integer shares (when required).
 
-### Problema
+### Problem
 
-Fino a questo punto, ΔQᵢ può essere un numero decimale (es. 14.70 quote). Ma nella realtà molti strumenti si comprano a quote intere.
+Up to this point, ΔQᵢ can be a decimal number (e.g., 15.88 shares). In reality, many instruments are traded in whole shares only.
 
-### Soluzioni (Policy)
+### Solutions (Policy)
 
-1. **Troncamento** (floor)
+1. **Floor rounding**
    ```
    ΔQᵢ,rounded = ⌊ΔQᵢ⌋
    ```
-   Esempio: 14.70 → 14
+   Example: 15.88 → 15
 
-2. **Arrotondamento matematico** (round)
+2. **Mathematical rounding**
    ```
    ΔQᵢ,rounded = round(ΔQᵢ)
    ```
-   Esempio: 14.70 → 15
+   Example: 15.88 → 16
 
-3. **Arrotondamento per eccesso** (ceiling)
+3. **Ceiling rounding**
    ```
    ΔQᵢ,rounded = ⌈ΔQᵢ⌉
    ```
-   Esempio: 14.70 → 15
+   Example: 15.88 → 16
 
-### Conseguenze
+### Consequences
 
-Dopo l'arrotondamento:
-- Il cash flow non sarà più esattamente zero
-- I pesi non saranno perfettamente a target
+After rounding:
+- Cash flow will no longer be exactly at target
+- Weights will not be perfectly at target
 
-**Azione**: Ricalcolare CF e deviazioni residue e riportarle all'utente.
+**Action**: Recalculate CF and residual deviations and report them to the user.
 
-### Policy di Default
+### Default Policy
 
-Di default, usiamo **arrotondamento matematico** (round).
+By default, **mathematical rounding** is used.
 
-### Codice Python
+### Python Code
 
 ```python
 from enum import Enum
@@ -445,150 +485,149 @@ def apply_rounding(portfolio, policy=RoundingPolicy.ROUND):
 
 ---
 
-## Diagramma di Flusso
+## Flow Diagram
 
 ```
-┌─────────────────────────┐
-│  Input: Portfolio       │
-│  (Q, P, PMC, T, w)     │
-└───────────┬─────────────┘
-            │
-            ▼
-  ┌─────────────────────┐
-  │ Step 1: Stato attuale│
-  │  V, ŵ, V_tot        │
-  └─────────┬───────────┘
-            │
-            ▼
-  ┌─────────────────────┐
-  │ Step 2: Deviazioni  │
-  │  Δw = ŵ − w        │
-  └─────────┬───────────┘
-            │
-            ▼
-  ┌─────────────────────┐
-  │ Step 3: Valore target│
-  │  ΔV = Δw × V_tot   │
-  └─────────┬───────────┘
-            │
-            ▼
-  ┌─────────────────────┐
-  │ Step 4: Quote       │
-  │  ΔQ = ΔV / P       │
-  └─────────┬───────────┘
-            │
-            ▼
-  ┌─────────────────────┐
-  │ Step 5: Cash flow   │
-  │  CF con tassazione  │
-  └─────────┬───────────┘
-            │
-            ▼
-        ┌───────┐
-        │CF ≈ 0?│
-        └───┬───┘
-            │ No
-            ▼
-  ┌─────────────────────┐
-  │ Step 6: Chiusura CF │
-  │  Scalatura acquisti │
-  └─────────┬───────────┘
-            │
-            ▼
-  ┌─────────────────────┐
-  │ Step 7: Simulazione │
-  │  Q_new, ŵ_new      │
-  └─────────┬───────────┘
-            │
-            ▼
-  ┌─────────────────────┐
-  │ Step 8: Arrotondamento│
-  │  (se richiesto)     │
-  └─────────┬───────────┘
-            │
-            ▼
-   ┌────────────────────┐
-   │ Output: Operazioni │
-   │  ΔQ per ogni asset │
-   └────────────────────┘
+┌─────────────────────────────┐
+│  Input: Portfolio           │
+│  (Q, P, PMC, T, w, C_avail)│
+└──────────┬──────────────────┘
+           │
+           ▼
+  ┌────────────────────────┐
+  │ Step 1: Current state  │
+  │  V, ŵ, V_tot          │
+  └──────────┬─────────────┘
+             │
+             ▼
+  ┌────────────────────────┐
+  │ Step 2: Deviations     │
+  │  Δw = ŵ − w           │
+  └──────────┬─────────────┘
+             │
+             ▼
+  ┌────────────────────────┐
+  │ Step 3: Target value   │
+  │  ΔV = Δw × V_target   │
+  └──────────┬─────────────┘
+             │
+             ▼
+  ┌────────────────────────┐
+  │ Step 4: Quantities     │
+  │  ΔQ = ΔV / P          │
+  └──────────┬─────────────┘
+             │
+             ▼
+  ┌────────────────────────┐
+  │ Step 5: Cash flow      │
+  │  CF with tax & commiss.│
+  └──────────┬─────────────┘
+             │
+             ▼
+        ┌────────────┐
+        │CF=CF_target?│
+        └─────┬──────┘
+              │ No
+              ▼
+  ┌────────────────────────┐
+  │ Step 6: Close CF       │
+  │  Scale purchases       │
+  └──────────┬─────────────┘
+             │
+             ▼
+  ┌────────────────────────┐
+  │ Step 7: Simulation     │
+  │  Q_new, ŵ_new         │
+  └──────────┬─────────────┘
+             │
+             ▼
+  ┌────────────────────────┐
+  │ Step 8: Rounding       │
+  │  (if required)         │
+  └──────────┬─────────────┘
+             │
+             ▼
+   ┌───────────────────────┐
+   │ Output: Operations    │
+   │  ΔQ for each asset    │
+   └───────────────────────┘
 ```
 
 ---
 
-## Invarianti e Proprietà
+## Invariants and Properties
 
-### Invarianti matematiche
+### Mathematical Invariants
 
-1. **Somma dei pesi = 100%**
+1. **Sum of weights = 100%**
    ```
    Σᵢ wᵢ = 1
    Σᵢ ŵᵢ = 1
    Σᵢ ŵᵢ,new = 1
    ```
 
-2. **Somma delle variazioni di valore = 0** (prima della chiusura CF)
+2. **Sum of value changes = available cash** (before CF closure)
    ```
-   Σᵢ ΔVᵢ = 0
-   ```
-
-3. **Cash flow ideale = 0** (dopo step 6)
-   ```
-   Σᵢ cash_inᵢ − Σᵢ cash_outᵢ ≈ 0
+   Σᵢ ΔVᵢ = C_available
    ```
 
-### Proprietà desiderabili
+3. **Cash flow at target** (after step 6)
+   ```
+   Σᵢ cash_inᵢ − Σᵢ cash_outᵢ ≈ −C_available
+   ```
 
-1. **Determinismo**: Stesso input → stesso output
-2. **Spiegabilità**: Ogni passaggio è ricostruibile
-3. **Efficienza**: O(N) complessità temporale
-4. **Robustezza**: Gestione di casi edge (portafoglio vuoto, target 100% su un asset, ecc.)
+### Desirable Properties
+
+1. **Determinism**: Same input → same output
+2. **Explainability**: Every step is reconstructable
+3. **Efficiency**: O(N) time complexity
+4. **Robustness**: Handles edge cases (empty portfolio, 100% target on one asset, etc.)
 
 ---
 
-## Limiti e Assunzioni
+## Limitations and Assumptions
 
-### Assunzioni
+### Assumptions
 
-1. **Prezzi costanti**: I prezzi non cambiano durante l'esecuzione delle operazioni
-2. **Liquidità infinita**: Posso comprare/vendere qualsiasi quantità
-3. **No costi di transazione**: Oltre alle tasse, non ci sono commissioni
-4. **Esecuzione istantanea**: Tutte le operazioni avvengono simultaneamente
-5. **PMC noto**: Il prezzo medio di carico è disponibile
+1. **Constant prices**: Prices don't change during operation execution
+2. **Infinite liquidity**: Can buy/sell any quantity
+3. **Known average cost**: Average cost basis is available for all holdings
+4. **Simultaneous execution**: All operations happen at once
 
-### Limiti
+### Limitations
 
-1. **Non ottimizza**: Scalatura proporzionale, non ottimizzazione numerica
-2. **Monovaluta**: Tutti i prezzi nella stessa valuta
-3. **Tassazione semplificata**: Capital gain tax lineare, no loss harvesting
-4. **No vincoli di lotto**: Non considera lotti minimi o multipli
+1. **No optimization**: Proportional scaling, not numerical optimization
+2. **Single currency**: All prices in the same currency
+3. **Simplified taxation**: Linear capital gains tax, no loss harvesting
+4. **No lot constraints**: Doesn't consider minimum lots or multiples
 
-### Possibili estensioni future
+### Possible Future Extensions
 
-- Gestione di vincoli di lotto (es. multipli di 100)
+- Lot constraint handling (e.g., multiples of 100)
 - Tax loss harvesting
-- Prioritizzazione degli acquisti in base a criteri
-- Gestione multi-valuta con tassi di cambio
-- Considerazione dei costi di transazione
+- Purchase prioritization based on criteria
+- Multi-currency handling with exchange rates
+- Non-linear commission structures
 
 ---
 
-## Validazione
+## Validation
 
-### Test unitari
+### Unit Tests
 
-Ogni step deve essere testato individualmente con:
-- Casi normali
-- Casi edge (portafoglio con 1 asset, tutti target a 0 tranne uno, ecc.)
-- Casi di errore (somma dei target ≠ 100%, prezzi negativi, ecc.)
+Each step must be tested individually with:
+- Normal cases
+- Edge cases (1-asset portfolio, all targets at 0 except one, etc.)
+- Error cases (target sum ≠ 100%, negative prices, etc.)
 
-### Test di integrazione
+### Integration Tests
 
-L'algoritmo completo deve essere testato end-to-end con:
-- Portafogli reali
-- Verificare che le invarianti siano rispettate
-- Controllare che CF finale sia vicino a 0
-- Validare che ŵᵢ,new ≈ wᵢ
+The complete algorithm must be tested end-to-end with:
+- Real portfolios
+- Verification that invariants are respected
+- Check that final CF is close to target
+- Validation that ŵᵢ,new ≈ wᵢ
 
-### Property-based testing
+### Property-Based Testing
 
-Usare framework come Hypothesis per generare automaticamente casi di test e verificare proprietà universali.
+Use frameworks like Hypothesis to automatically generate test cases and verify universal properties.
