@@ -70,11 +70,6 @@ if "apply_rounding_checkbox" not in st.session_state:
 if "rounding_policy_radio" not in st.session_state:
     st.session_state.rounding_policy_radio = "ROUND"
 
-# DEBUG: alternating table persistence investigation
-if "debug_rerun_counter" not in st.session_state:
-    st.session_state.debug_rerun_counter = 0
-st.session_state.debug_rerun_counter += 1
-
 
 # ============================================================================
 # SIDEBAR
@@ -160,26 +155,24 @@ with tab1:
     - **Commission fields**: Broker fees for buying/selling
     """)
     
-    # DEBUG: alternating table persistence investigation
-    print(f"\n{'='*80}")
-    print(f"RERUN #{st.session_state.debug_rerun_counter} ({'EVEN' if st.session_state.debug_rerun_counter % 2 == 0 else 'ODD'})")
-    print(f"{'='*80}")
+    # NOTE:
+    # Root cause of alternating table update bug:
+    # st.data_editor() ALWAYS returns a new DataFrame object on every rerun,
+    # even when no user interaction occurs. This created unnecessary object churn
+    # and made it appear that edits were alternating between saved/not saved.
+    #
+    # Debug revealed:
+    # - EVEN reruns: User edits detected, new DF returned with changes
+    # - ODD reruns: No user action, but widget still returned new DF copy
+    #
+    # Fix:
+    # Only update session state when DataFrame values actually change.
+    # Use .equals() to compare DataFrames and avoid storing unnecessary copies.
+    # This stabilizes state and eliminates the alternating perception.
     
     # Initialize DataFrame storage if first time
     if "assets_table_df" not in st.session_state:
         st.session_state.assets_table_df = assets_to_dataframe(st.session_state.assets_data)
-        print("INITIALIZATION: Created assets_table_df from assets_data")
-        print(f"  DataFrame ID: {id(st.session_state.assets_table_df)}")
-    
-    # DEBUG: Log state BEFORE widget rendering
-    print(f"\nBEFORE st.data_editor():")
-    print(f"  assets_table_df ID: {id(st.session_state.assets_table_df)}")
-    print(f"  assets_table_df is: {type(st.session_state.assets_table_df)}")
-    print(f"  Target Weight values: {st.session_state.assets_table_df['Target Weight (%)'].tolist()}")
-    
-    # DEBUG: Store reference to input DataFrame
-    input_df_id = id(st.session_state.assets_table_df)
-    input_values = st.session_state.assets_table_df['Target Weight (%)'].tolist()
     
     # Render the data editor
     edited_df = st.data_editor(
@@ -205,58 +198,29 @@ with tab1:
         hide_index=True,
     )
     
-    # DEBUG: Log state AFTER widget rendering
-    print(f"\nAFTER st.data_editor():")
-    print(f"  edited_df ID: {id(edited_df)}")
-    print(f"  edited_df is: {type(edited_df)}")
-    print(f"  Target Weight values: {edited_df['Target Weight (%)'].tolist()}")
+    # Only update session state if DataFrame values actually changed
+    # This prevents unnecessary object replacement on every rerun
+    if not st.session_state.assets_table_df.equals(edited_df):
+        st.session_state.assets_table_df = edited_df
     
-    output_df_id = id(edited_df)
-    output_values = edited_df['Target Weight (%)'].tolist()
-    
-    # DEBUG: Analyze differences
-    print(f"\nANALYSIS:")
-    print(f"  Input DataFrame ID == Output DataFrame ID: {input_df_id == output_df_id}")
-    print(f"  Values changed: {input_values != output_values}")
-    if input_values != output_values:
-        print(f"    BEFORE: {input_values}")
-        print(f"    AFTER:  {output_values}")
-    
-    # DEBUG: Check if we're about to overwrite with same or different data
-    print(f"\nSTORAGE OPERATION:")
-    print(f"  Storing edited_df into assets_table_df")
-    print(f"  This WILL overwrite: {id(st.session_state.assets_table_df)}")
-    print(f"  With new DataFrame:  {id(edited_df)}")
-    
-    # Store edited DataFrame for next rerun
-    st.session_state.assets_table_df = edited_df
-    
-    # DEBUG: Verify storage
-    print(f"\nAFTER STORAGE:")
-    print(f"  assets_table_df ID: {id(st.session_state.assets_table_df)}")
-    print(f"  Stored values: {st.session_state.assets_table_df['Target Weight (%)'].tolist()}")
-    print(f"  Same object as edited_df: {id(st.session_state.assets_table_df) == output_df_id}")
-    
-    # Sync to assets_data
-    st.session_state.assets_data = edited_df.to_dict('records')
-    
-    print(f"\n{'='*80}\n")
+    # Sync to assets_data for downstream code
+    st.session_state.assets_data = st.session_state.assets_table_df.to_dict('records')
     
     # Validation feedback
     st.markdown("---")
-    is_valid, error_msg = validate_assets_data(edited_df)
+    is_valid, error_msg = validate_assets_data(st.session_state.assets_table_df)
     
     if is_valid:
         st.success("✅ Portfolio data is valid")
         
         total_value = sum(row["Quantity"] * row["Price"] for row in st.session_state.assets_data)
-        total_target = edited_df["Target Weight (%)"].sum()
+        total_target = st.session_state.assets_table_df["Target Weight (%)"].sum()
         
         col1, col2, col3 = st.columns(3)
         with col1:
             st.metric("Current Portfolio Value", format_currency(total_value))
         with col2:
-            st.metric("Number of Assets", len(edited_df))
+            st.metric("Number of Assets", len(st.session_state.assets_table_df))
         with col3:
             st.metric("Target Weights Sum", f"{total_target:.2f}%")
     else:
