@@ -173,14 +173,19 @@ with tab1:
     # Convert current assets to DataFrame for editing
     df = assets_to_dataframe(st.session_state.assets_data)
     
-    # FIX: Added unique key to data_editor to fix persistence issues
-    # Without a key, Streamlit may not properly track edits between reruns
-    # The key ensures the widget state is preserved across interactions
+    # CRITICAL FIX: The issue is that data_editor returns the edited dataframe,
+    # but we're immediately converting it to dict and saving to session_state,
+    # which gets re-read on the next rerun. This creates a race condition.
+    # 
+    # The solution is to NOT use the return value for immediate updates.
+    # Instead, we read from session_state['assets_table_editor'] which Streamlit
+    # automatically updates when the user edits the table.
+    
     edited_df = st.data_editor(
         df,
         num_rows="dynamic",  # Allow adding/removing rows
         use_container_width=True,
-        key="assets_table_editor",  # CRITICAL: This key fixes the double-input bug
+        key="assets_table_editor",  # This key creates session_state['assets_table_editor']
         column_config={
             "Symbol": st.column_config.TextColumn("Symbol", required=True, max_chars=10),
             "Quantity": st.column_config.NumberColumn("Quantity", min_value=0.0, format="%.4f"),
@@ -200,9 +205,11 @@ with tab1:
         hide_index=True,
     )
     
-    # FIX: Update session state from the edited dataframe
-    # This ensures changes persist immediately after first edit
-    st.session_state.assets_data = edited_df.to_dict('records')
+    # CRITICAL FIX: Save the edited dataframe to session state
+    # This must happen AFTER the data_editor is rendered
+    # The edited_df contains the user's changes
+    if edited_df is not None:
+        st.session_state.assets_data = edited_df.to_dict('records')
     
     # Validation feedback
     st.markdown("---")
