@@ -182,46 +182,35 @@ with tab1:
     """)
     
     # NOTE:
-    # Root cause of Assets Table double-edit bug (confirmed via debug instrumentation):
-    # Line 227 (old code): data_for_editor = assets_to_dataframe(st.session_state.assets_data)
-    # This line executed on EVERY rerun after initialization, creating DataFrame from
-    # OLD/STALE assets_data (which hadn't been updated yet by the widget).
-    # This stale DataFrame was then passed to st.data_editor(), OVERRIDING the widget's
-    # internal state that contained the user's edit.
-    #
-    # Flow of the bug:
-    # 1. User edits cell (15.0 → 16.0)
-    # 2. Widget stores 16.0 in its internal state
-    # 3. Streamlit reruns
-    # 4. Line 227: Creates DataFrame from assets_data (still 15.0 - not updated yet)
-    # 5. st.data_editor() receives stale DataFrame (15.0) as first parameter
-    # 6. Widget's internal state (16.0) OVERRIDDEN by parameter (15.0)
-    # 7. Widget returns 15.0 to edited_df
-    # 8. assets_data = edited_df.to_dict() saves 15.0
-    # 9. Result: First edit lost, second edit persists
+    # Root cause of Assets Table double-edit bug:
+    # Original code passed assets_to_dataframe(st.session_state.assets_data) on EVERY rerun,
+    # which contained STALE data that hadn't been updated by the widget yet.
+    # This overrode the widget's internal state containing the user's fresh edit.
     #
     # Fix implemented:
-    # - After initialization, do NOT pass any DataFrame to st.data_editor()
-    # - Only initialize widget on first render with data from assets_data
-    # - After that, widget manages its own state via key parameter
-    # - Widget state is the single source of truth during editing
-    # - Read edited data from widget return value and sync to assets_data
+    # - On FIRST render: Initialize from assets_data
+    # - On SUBSEQUENT renders: Read from widget's own session_state and pass it back
+    # - Widget state (st.session_state.assets_table_editor) is a DataFrame
+    # - This creates proper feedback loop: widget edits itself, we pass its state back
+    # - Single source of truth: st.session_state.assets_table_editor (after init)
     
     # Check if this is the first render (widget doesn't exist yet)
     if "assets_table_editor" not in st.session_state:
         # FIRST RENDER ONLY: Initialize widget with data from assets_data
         initial_df = assets_to_dataframe(st.session_state.assets_data)
     else:
-        # SUBSEQUENT RENDERS: Pass None to avoid overriding widget's internal state
-        # The widget will use its own state stored under the key "assets_table_editor"
-        initial_df = None
+        # SUBSEQUENT RENDERS: Read from widget's own state and pass it back
+        # The widget stores its edited DataFrame in st.session_state[key]
+        # We pass that DataFrame back to the widget, creating a feedback loop
+        # This preserves edits because we're not overriding with stale external data
+        initial_df = st.session_state.assets_table_editor
     
     # Render the data editor
-    # - On first render: receives initial_df (DataFrame) for initialization
-    # - On subsequent renders: receives None, widget uses its own key-based state
-    # - Widget state persists across reruns without external override
+    # - On first render: receives initial_df from assets_data
+    # - On subsequent renders: receives initial_df from widget's own session state
+    # - Widget state persists because we pass it back to itself
     edited_df = st.data_editor(
-        initial_df,  # None after first render - widget manages its own state
+        initial_df,  # Widget's own state after first render
         num_rows="dynamic",
         use_container_width=True,
         key="assets_table_editor",
