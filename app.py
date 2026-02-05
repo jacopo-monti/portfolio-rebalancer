@@ -51,34 +51,13 @@ st.set_page_config(
 # ============================================================================
 # SESSION STATE INITIALIZATION
 # ============================================================================
-# Streamlit's session state allows us to persist data between reruns.
-# This is our "in-memory database" for the demo.
-#
-# NOTE:
-# Root cause of previous double-input bug:
-# - Widgets were initialized with value=st.session_state.var
-# - Widget stored state in st.session_state.widget_key  
-# - Code then copied widget_key back to var after rendering
-# - On rerun, 'value' parameter OVERRODE widget's key-based state
-# - This caused widget to revert to old value, losing first interaction
-#
-# Fix implemented:
-# - Widget keys ARE the canonical state (no separate state variables)
-# - No 'value' parameter used (let Streamlit manage widget state natively)
-# - All code reads directly from widget key state
-# - Single source of truth, no state copying
 
 if "assets_data" not in st.session_state:
-    # Initialize with default example portfolio
     st.session_state.assets_data = create_default_assets()
 
 if "rebalancing_result" not in st.session_state:
-    # Store the result of the last rebalancing calculation
     st.session_state.rebalancing_result = None
 
-# Widget keys will be the canonical state:
-# - portfolio_name_input (instead of portfolio_name)
-# - cash_available_input (instead of cash_available)
 if "portfolio_name_input" not in st.session_state:
     st.session_state.portfolio_name_input = "My Portfolio"
 
@@ -90,6 +69,11 @@ if "apply_rounding_checkbox" not in st.session_state:
 
 if "rounding_policy_radio" not in st.session_state:
     st.session_state.rounding_policy_radio = "ROUND"
+
+# DEBUG: alternating table persistence investigation
+if "debug_rerun_counter" not in st.session_state:
+    st.session_state.debug_rerun_counter = 0
+st.session_state.debug_rerun_counter += 1
 
 
 # ============================================================================
@@ -135,7 +119,6 @@ tab1, tab2, tab3 = st.tabs(["🎯 Target & Portfolio", "📈 Analysis", "⚙️ 
 # ============================================================================
 # TAB 1: TARGET & PORTFOLIO
 # ============================================================================
-# This tab replicates the Excel input file structure
 
 with tab1:
     st.header("Portfolio Configuration")
@@ -147,8 +130,6 @@ with tab1:
     # Portfolio metadata
     col1, col2 = st.columns(2)
     with col1:
-        # Widget key IS the canonical state variable
-        # No 'value' parameter - let Streamlit manage the widget state natively
         st.text_input(
             "Portfolio Name",
             key="portfolio_name_input",
@@ -156,8 +137,6 @@ with tab1:
         )
     
     with col2:
-        # Widget key IS the canonical state
-        # No 'value' parameter to avoid overriding widget state
         st.number_input(
             "Available Cash to Deploy (€)",
             min_value=0.0,
@@ -181,37 +160,32 @@ with tab1:
     - **Commission fields**: Broker fees for buying/selling
     """)
     
-    # NOTE:
-    # Root cause of Assets Table double-edit bug (CONFIRMED via debug):
-    # st.data_editor() with a key parameter creates TWO competing state sources:
-    # 1. The DataFrame passed as first parameter (what we control)
-    # 2. The widget's internal state in st.session_state[key] (what widget controls)
-    #
-    # The widget PRIORITIZES its key-based state over the parameter!
-    # Debug output proved this:
-    # - Rerun #4: We passed 16.0, but widget returned 15.0 (from its stale key state)
-    #
-    # Fix implemented:
-    # REMOVE the key parameter entirely.
-    # Without a key:
-    # - Widget has NO internal state to compete with our parameter
-    # - DataFrame parameter is the ONLY source of truth
-    # - Widget displays exactly what we pass
-    # - Edits captured in return value, stored in assets_table_df
-    # - Clean feedback loop: pass df → edit → store → pass back
+    # DEBUG: alternating table persistence investigation
+    print(f"\n{'='*80}")
+    print(f"RERUN #{st.session_state.debug_rerun_counter} ({'EVEN' if st.session_state.debug_rerun_counter % 2 == 0 else 'ODD'})")
+    print(f"{'='*80}")
     
     # Initialize DataFrame storage if first time
     if "assets_table_df" not in st.session_state:
-        # FIRST RENDER ONLY: Initialize from assets_data
         st.session_state.assets_table_df = assets_to_dataframe(st.session_state.assets_data)
+        print("INITIALIZATION: Created assets_table_df from assets_data")
+        print(f"  DataFrame ID: {id(st.session_state.assets_table_df)}")
     
-    # Render the data editor WITHOUT a key parameter
-    # This makes the DataFrame parameter the single source of truth
+    # DEBUG: Log state BEFORE widget rendering
+    print(f"\nBEFORE st.data_editor():")
+    print(f"  assets_table_df ID: {id(st.session_state.assets_table_df)}")
+    print(f"  assets_table_df is: {type(st.session_state.assets_table_df)}")
+    print(f"  Target Weight values: {st.session_state.assets_table_df['Target Weight (%)'].tolist()}")
+    
+    # DEBUG: Store reference to input DataFrame
+    input_df_id = id(st.session_state.assets_table_df)
+    input_values = st.session_state.assets_table_df['Target Weight (%)'].tolist()
+    
+    # Render the data editor
     edited_df = st.data_editor(
-        st.session_state.assets_table_df,  # Single source of truth
+        st.session_state.assets_table_df,
         num_rows="dynamic",
         use_container_width=True,
-        # NO KEY - this is the fix!
         column_config={
             "Symbol": st.column_config.TextColumn("Symbol", required=True, max_chars=10),
             "Quantity": st.column_config.NumberColumn("Quantity", min_value=0.0, format="%.4f"),
@@ -231,18 +205,48 @@ with tab1:
         hide_index=True,
     )
     
-    # Store edited DataFrame for next rerun (feedback loop)
+    # DEBUG: Log state AFTER widget rendering
+    print(f"\nAFTER st.data_editor():")
+    print(f"  edited_df ID: {id(edited_df)}")
+    print(f"  edited_df is: {type(edited_df)}")
+    print(f"  Target Weight values: {edited_df['Target Weight (%)'].tolist()}")
+    
+    output_df_id = id(edited_df)
+    output_values = edited_df['Target Weight (%)'].tolist()
+    
+    # DEBUG: Analyze differences
+    print(f"\nANALYSIS:")
+    print(f"  Input DataFrame ID == Output DataFrame ID: {input_df_id == output_df_id}")
+    print(f"  Values changed: {input_values != output_values}")
+    if input_values != output_values:
+        print(f"    BEFORE: {input_values}")
+        print(f"    AFTER:  {output_values}")
+    
+    # DEBUG: Check if we're about to overwrite with same or different data
+    print(f"\nSTORAGE OPERATION:")
+    print(f"  Storing edited_df into assets_table_df")
+    print(f"  This WILL overwrite: {id(st.session_state.assets_table_df)}")
+    print(f"  With new DataFrame:  {id(edited_df)}")
+    
+    # Store edited DataFrame for next rerun
     st.session_state.assets_table_df = edited_df
     
-    # Sync to assets_data for downstream code (backward compatibility)
+    # DEBUG: Verify storage
+    print(f"\nAFTER STORAGE:")
+    print(f"  assets_table_df ID: {id(st.session_state.assets_table_df)}")
+    print(f"  Stored values: {st.session_state.assets_table_df['Target Weight (%)'].tolist()}")
+    print(f"  Same object as edited_df: {id(st.session_state.assets_table_df) == output_df_id}")
+    
+    # Sync to assets_data
     st.session_state.assets_data = edited_df.to_dict('records')
+    
+    print(f"\n{'='*80}\n")
     
     # Validation feedback
     st.markdown("---")
     is_valid, error_msg = validate_assets_data(edited_df)
     
     if is_valid:
-        # Calculate and display portfolio summary
         st.success("✅ Portfolio data is valid")
         
         total_value = sum(row["Quantity"] * row["Price"] for row in st.session_state.assets_data)
@@ -264,9 +268,7 @@ with tab1:
     col1, col2 = st.columns([1, 4])
     with col1:
         if st.button("🔄 Reset to Example", key="reset_button", help="Reset to default 3-asset example portfolio"):
-            # Reset the source data and force reinitialization
             st.session_state.assets_data = create_default_assets()
-            # Delete the DataFrame storage to force complete reinitialization
             if "assets_table_df" in st.session_state:
                 del st.session_state.assets_table_df
             st.rerun()
@@ -275,7 +277,6 @@ with tab1:
 # ============================================================================
 # TAB 2: ANALYSIS
 # ============================================================================
-# This tab replicates the Excel output file structure
 
 with tab2:
     st.header("Rebalancing Analysis")
@@ -284,9 +285,7 @@ with tab2:
     Results mirror the structure of the Excel output file.
     """)
     
-    # Button to trigger calculation
     if st.button("▶️ Run Rebalancing Analysis", type="primary", use_container_width=True, key="run_analysis_button"):
-        # Validate data before running
         df = assets_to_dataframe(st.session_state.assets_data)
         is_valid, error_msg = validate_assets_data(df)
         
@@ -294,7 +293,6 @@ with tab2:
             st.error(f"Cannot run analysis: {error_msg}")
         else:
             try:
-                # Convert UI data to domain models
                 assets = dataframe_to_assets(df)
                 portfolio = Portfolio(
                     assets=assets,
@@ -302,7 +300,6 @@ with tab2:
                     name=st.session_state.portfolio_name_input,
                 )
                 
-                # Create the rebalancing engine with optional rounding policy
                 rounding_policy = None
                 if st.session_state.apply_rounding_checkbox:
                     policy_map = {
@@ -314,11 +311,9 @@ with tab2:
                 
                 engine = RebalancingEngine(rounding_policy=rounding_policy)
                 
-                # Execute the core rebalancing logic
                 with st.spinner("Calculating optimal rebalancing operations..."):
                     result = engine.rebalance(portfolio)
                 
-                # Store result in session state
                 st.session_state.rebalancing_result = result
                 st.success("✅ Rebalancing calculation complete!")
                 
@@ -326,17 +321,13 @@ with tab2:
                 st.error(f"Error during rebalancing: {str(e)}")
                 st.session_state.rebalancing_result = None
     
-    # Display results if available
     if st.session_state.rebalancing_result is not None:
         result = st.session_state.rebalancing_result
         
         st.markdown("---")
-        
-        # Section 1: Current Portfolio State
         st.subheader("📊 Current Portfolio State")
         st.markdown("Your portfolio before rebalancing:")
         
-        # Reconstruct portfolio for display
         df = assets_to_dataframe(st.session_state.assets_data)
         assets = dataframe_to_assets(df)
         portfolio = Portfolio(
@@ -345,7 +336,6 @@ with tab2:
             name=st.session_state.portfolio_name_input,
         )
         
-        # Compute current state (mimics Step 1 of the algorithm)
         engine = RebalancingEngine()
         engine._compute_current_state(portfolio)
         
@@ -360,8 +350,6 @@ with tab2:
                 st.metric("Available Cash", format_currency(st.session_state.cash_available_input))
         
         st.markdown("---")
-        
-        # Section 2: Required Operations
         st.subheader("🔄 Required Operations")
         st.markdown("Buy and sell operations needed to reach target allocation:")
         
@@ -369,8 +357,6 @@ with tab2:
         st.dataframe(operations_df, use_container_width=True, hide_index=True)
         
         st.markdown("---")
-        
-        # Section 3: Cash Flow Summary
         st.subheader("💰 Cash Flow Summary")
         st.markdown("Financial impact of the rebalancing operations:")
         
@@ -389,7 +375,6 @@ with tab2:
             )
         with col3:
             cash_flow = result.cash_flow
-            delta_color = "normal" if abs(cash_flow) < 1.0 else ("inverse" if cash_flow < 0 else "off")
             st.metric(
                 "Net Cash Flow",
                 format_currency(cash_flow),
@@ -397,7 +382,6 @@ with tab2:
                 help="Positive = surplus, Negative = you need to add cash, ~0 = balanced"
             )
         
-        # Cash flow interpretation
         if abs(cash_flow) < 1.0:
             st.success("✅ Cash flow is balanced (no external funds needed)")
         elif cash_flow < -1.0:
@@ -406,19 +390,15 @@ with tab2:
             st.info(f"ℹ️ You'll have {format_currency(cash_flow)} left over after rebalancing")
         
         st.markdown("---")
-        
-        # Section: Rebalancing Cost Breakdown
         st.subheader("💳 Rebalancing Cost Breakdown")
         st.markdown("Total cost to execute the rebalancing operations:")
         
-        # Calculate total cost components
         total_tax = result.total_tax_paid
         commission_buy = result.total_commission_buy
         commission_sell = result.total_commission_sell
         total_commission = result.total_commission
         total_cost = total_tax + total_commission
         
-        # Display as prominent metric
         col1, col2, col3 = st.columns([2, 1, 1])
         with col1:
             st.metric(
@@ -427,44 +407,25 @@ with tab2:
                 help="Sum of all taxes and transaction fees"
             )
         
-        # Display detailed breakdown
         st.markdown("**Cost Components:**")
         
         breakdown_col1, breakdown_col2 = st.columns(2)
         
         with breakdown_col1:
             st.markdown("**Transaction Fees (Commissions)**")
-            st.metric(
-                "Buy Commissions",
-                format_currency(commission_buy),
-                help="Broker fees on purchase operations"
-            )
-            st.metric(
-                "Sell Commissions",
-                format_currency(commission_sell),
-                help="Broker fees on sell operations"
-            )
-            st.metric(
-                "Total Commissions",
-                format_currency(total_commission),
-                help="Sum of buy and sell commissions"
-            )
+            st.metric("Buy Commissions", format_currency(commission_buy))
+            st.metric("Sell Commissions", format_currency(commission_sell))
+            st.metric("Total Commissions", format_currency(total_commission))
         
         with breakdown_col2:
             st.markdown("**Capital Gains Tax**")
-            st.metric(
-                "Total Tax Paid",
-                format_currency(total_tax),
-                help="Tax on realized capital gains from selling at profit"
-            )
+            st.metric("Total Tax Paid", format_currency(total_tax))
             
-            # Show tax breakdown by asset if any taxes are paid
             if total_tax > 0.01:
                 st.markdown("*Tax applies only to profitable sales*")
             else:
                 st.markdown("*No capital gains tax (no profitable sales)*")
         
-        # Add explanatory note
         st.info("""
         **Note on costs:**
         - **Commissions** are charged by your broker on each transaction
@@ -474,8 +435,6 @@ with tab2:
         """)
         
         st.markdown("---")
-        
-        # Section 4: Post-Rebalancing Portfolio
         st.subheader("🎯 Post-Rebalancing Portfolio")
         st.markdown("Your portfolio after executing the operations:")
         
@@ -488,7 +447,6 @@ with tab2:
         with col2:
             st.metric("Max Weight Deviation", format_percentage(result.max_deviation))
         
-        # Accuracy assessment
         if result.max_deviation < 0.01:
             st.success("✅ Excellent: All weights within 1% of target")
         elif result.max_deviation < 0.05:
@@ -497,8 +455,6 @@ with tab2:
             st.warning("⚠️ Large deviations remain (consider adjusting parameters)")
         
         st.markdown("---")
-        
-        # Disclaimer
         st.info("""
         **Note:** This is a calculation tool, not financial advice. Always verify calculations 
         and consult a financial advisor if needed.
@@ -511,7 +467,6 @@ with tab2:
 # ============================================================================
 # TAB 3: SETTINGS
 # ============================================================================
-# Configuration for algorithm behavior
 
 with tab3:
     st.header("Algorithm Settings")
@@ -522,14 +477,12 @@ with tab3:
     
     st.markdown("---")
     
-    # Rounding policy section
     st.subheader("Share Rounding")
     st.markdown("""
     Some assets require whole shares. Enable rounding to convert fractional 
     share calculations to integers.
     """)
     
-    # Widget key IS the canonical state
     st.checkbox(
         "Apply rounding to share quantities",
         key="apply_rounding_checkbox",
@@ -545,7 +498,6 @@ with tab3:
             horizontal=True,
         )
         
-        # Explain the implications
         if st.session_state.rounding_policy_radio == "FLOOR":
             st.info("🔽 **FLOOR**: Always rounds down. Conservative, may leave cash unallocated.")
         elif st.session_state.rounding_policy_radio == "ROUND":
@@ -560,7 +512,6 @@ with tab3:
     
     st.markdown("---")
     
-    # Algorithm information
     st.subheader("Algorithm Information")
     st.markdown("""
     This tool uses a **deterministic 8-step algorithm**:
@@ -585,7 +536,6 @@ with tab3:
     
     st.markdown("---")
     
-    # Limitations and assumptions
     with st.expander("📋 Assumptions & Limitations"):
         st.markdown("""
         **Assumptions:**
