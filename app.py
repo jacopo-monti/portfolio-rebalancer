@@ -70,6 +70,129 @@ if "apply_rounding_checkbox" not in st.session_state:
 if "rounding_policy_radio" not in st.session_state:
     st.session_state.rounding_policy_radio = "ROUND"
 
+if "editing_asset_index" not in st.session_state:
+    st.session_state.editing_asset_index = None
+
+
+# ============================================================================
+# HELPER FUNCTIONS FOR ASSET MANAGEMENT
+# ============================================================================
+
+def validate_asset_input(symbol: str, quantity: float, price: float, avg_cost: float,
+                        tax_rate: float, target_weight: float) -> tuple[bool, str]:
+    """Validate asset input fields.
+    
+    Args:
+        symbol: Asset symbol
+        quantity: Number of shares
+        price: Current price
+        avg_cost: Average cost basis
+        tax_rate: Capital gains tax rate (%)
+        target_weight: Target portfolio weight (%)
+        
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    # Validate symbol
+    if not symbol or symbol.strip() == "":
+        return False, "Asset name/symbol cannot be empty"
+    
+    # Validate quantity
+    if quantity < 0:
+        return False, "Quantity must be ≥ 0"
+    
+    # Validate price
+    if price <= 0:
+        return False, "Price must be > 0"
+    
+    # Validate avg_cost
+    if avg_cost < 0:
+        return False, "Average cost must be ≥ 0"
+    
+    # Validate tax_rate
+    if tax_rate < 0 or tax_rate > 100:
+        return False, "Tax rate must be between 0% and 100%"
+    
+    # Validate target_weight
+    if target_weight < 0 or target_weight > 100:
+        return False, "Target weight must be between 0% and 100%"
+    
+    return True, ""
+
+
+def validate_commission_fields(buy_fixed: float, buy_pct: float, buy_min: float, buy_max: float,
+                              sell_fixed: float, sell_pct: float, sell_min: float, sell_max: float) -> tuple[bool, str]:
+    """Validate commission input fields.
+    
+    Args:
+        All commission parameters
+        
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    fields = [
+        (buy_fixed, "Buy fixed fee"),
+        (buy_pct, "Buy % fee"),
+        (buy_min, "Buy min fee"),
+        (buy_max, "Buy max fee"),
+        (sell_fixed, "Sell fixed fee"),
+        (sell_pct, "Sell % fee"),
+        (sell_min, "Sell min fee"),
+        (sell_max, "Sell max fee"),
+    ]
+    
+    for value, name in fields:
+        if value < 0:
+            return False, f"{name} must be ≥ 0"
+        if "% fee" in name and value > 100:
+            return False, f"{name} must be ≤ 100%"
+    
+    return True, ""
+
+
+def add_asset_to_portfolio(asset_data: dict) -> None:
+    """Add a new asset to the portfolio.
+    
+    Args:
+        asset_data: Dictionary containing asset data
+    """
+    st.session_state.assets_data.append(asset_data)
+
+
+def update_asset_in_portfolio(index: int, asset_data: dict) -> None:
+    """Update an existing asset in the portfolio.
+    
+    Args:
+        index: Index of asset to update
+        asset_data: Dictionary containing updated asset data
+    """
+    st.session_state.assets_data[index] = asset_data
+
+
+def delete_asset_from_portfolio(index: int) -> None:
+    """Delete an asset from the portfolio.
+    
+    Args:
+        index: Index of asset to delete
+    """
+    st.session_state.assets_data.pop(index)
+
+
+def check_duplicate_symbol(symbol: str, exclude_index: Optional[int] = None) -> bool:
+    """Check if symbol already exists in portfolio.
+    
+    Args:
+        symbol: Symbol to check
+        exclude_index: Optional index to exclude (for edit mode)
+        
+    Returns:
+        True if duplicate exists
+    """
+    for i, asset in enumerate(st.session_state.assets_data):
+        if i != exclude_index and asset["Symbol"].upper() == symbol.upper():
+            return True
+    return False
+
 
 # ============================================================================
 # SIDEBAR
@@ -89,7 +212,7 @@ with st.sidebar:
     - Maintains cash flow neutrality
     
     ### How to Use
-    1. **Target & Portfolio**: Enter your assets and targets
+    1. **Target & Portfolio**: Add assets and define targets
     2. **Analysis**: Run rebalancing and view results
     3. **Settings**: Configure algorithm parameters
     
@@ -118,8 +241,8 @@ tab1, tab2, tab3 = st.tabs(["🎯 Target & Portfolio", "📈 Analysis", "⚙️ 
 with tab1:
     st.header("Portfolio Configuration")
     st.markdown("""
-    Define your portfolio composition, current holdings, and target allocation.
-    This mirrors the structure of the Excel input file.
+    Build your portfolio by adding assets one at a time. Define each asset's current holdings 
+    and target allocation.
     """)
     
     # Portfolio metadata
@@ -142,87 +265,333 @@ with tab1:
     
     st.markdown("---")
     
-    # Asset table section
-    st.subheader("Asset Table")
-    st.markdown("""
-    Enter your assets below. You can edit cells directly in the table.
-    - **Symbol**: Asset ticker/identifier
-    - **Quantity**: Current shares owned
-    - **Price**: Current market price per share
-    - **Avg Cost**: Your average purchase price (for tax calculation)
-    - **Tax Rate (%)**: Capital gains tax rate
-    - **Target Weight (%)**: Desired portfolio allocation (must sum to 100%)
-    - **Commission fields**: Broker fees for buying/selling
-    """)
+    # Asset creation/editing form
+    st.subheader("Add Asset" if st.session_state.editing_asset_index is None else "Edit Asset")
     
-    # NOTE:
-    # Cause of Asset Table alternating reset bug:
-    # When st.data_editor receives the SAME DataFrame object as both input
-    # and output (circular assignment: df = st.data_editor(df)), Streamlit's
-    # state management becomes confused. On alternating reruns, the widget
-    # receives either stale or current data, causing edits to be lost.
-    #
-    # This is a known Streamlit issue:
-    # - https://github.com/streamlit/streamlit/issues/7354
-    # - https://github.com/streamlit/streamlit/issues/7749
-    #
-    # Fix:
-    # Always pass fresh DataFrame from assets_data as input, not the editor's
-    # previous output. This ensures unidirectional data flow:
-    #   assets_data → DataFrame → st.data_editor → edited_df → assets_data
-    # The key parameter provides stable widget identity across reruns.
+    # If editing, pre-populate form with existing asset data
+    editing_asset = None
+    if st.session_state.editing_asset_index is not None:
+        editing_asset = st.session_state.assets_data[st.session_state.editing_asset_index]
     
-    # Prepare input DataFrame from canonical source
-    input_df = assets_to_dataframe(st.session_state.assets_data)
-    
-    # Render the data editor with stable key
-    edited_df = st.data_editor(
-        input_df,
-        num_rows="dynamic",
-        use_container_width=True,
-        key="assets_table_editor",
-        column_config={
-            "Symbol": st.column_config.TextColumn("Symbol", required=True, max_chars=10),
-            "Quantity": st.column_config.NumberColumn("Quantity", min_value=0.0, format="%.4f"),
-            "Price": st.column_config.NumberColumn("Price (€)", min_value=0.01, format="%.2f"),
-            "Avg Cost": st.column_config.NumberColumn("Avg Cost (€)", min_value=0.0, format="%.2f"),
-            "Tax Rate (%)": st.column_config.NumberColumn("Tax Rate (%)", min_value=0.0, max_value=100.0, format="%.2f"),
-            "Target Weight (%)": st.column_config.NumberColumn("Target Weight (%)", min_value=0.0, max_value=100.0, format="%.2f"),
-            "Buy Fixed Fee": st.column_config.NumberColumn("Buy Fixed Fee (€)", min_value=0.0, format="%.2f"),
-            "Buy % Fee": st.column_config.NumberColumn("Buy % Fee", min_value=0.0, max_value=100.0, format="%.3f"),
-            "Buy Min Fee": st.column_config.NumberColumn("Buy Min Fee (€)", min_value=0.0, format="%.2f"),
-            "Buy Max Fee": st.column_config.NumberColumn("Buy Max Fee (€)", min_value=0.0, format="%.2f"),
-            "Sell Fixed Fee": st.column_config.NumberColumn("Sell Fixed Fee (€)", min_value=0.0, format="%.2f"),
-            "Sell % Fee": st.column_config.NumberColumn("Sell % Fee", min_value=0.0, max_value=100.0, format="%.3f"),
-            "Sell Min Fee": st.column_config.NumberColumn("Sell Min Fee (€)", min_value=0.0, format="%.2f"),
-            "Sell Max Fee": st.column_config.NumberColumn("Sell Max Fee (€)", min_value=0.0, format="%.2f"),
-        },
-        hide_index=True,
-    )
-    
-    # Sync edited data back to canonical source
-    st.session_state.assets_data = edited_df.to_dict('records')
-    
-    # Validation feedback
-    st.markdown("---")
-    is_valid, error_msg = validate_assets_data(edited_df)
-    
-    if is_valid:
-        st.success("✅ Portfolio data is valid")
+    with st.form(key="asset_form", clear_on_submit=True):
+        st.markdown("**Basic Information**")
+        col1, col2, col3 = st.columns(3)
         
-        total_value = sum(row["Quantity"] * row["Price"] for row in st.session_state.assets_data)
-        total_target = edited_df["Target Weight (%)"].sum()
+        with col1:
+            form_symbol = st.text_input(
+                "Asset Symbol/Name *",
+                value=editing_asset["Symbol"] if editing_asset else "",
+                help="e.g., VWCE, AAPL, BTC",
+                max_chars=20
+            )
+        
+        with col2:
+            form_quantity = st.number_input(
+                "Quantity (shares) *",
+                min_value=0.0,
+                value=float(editing_asset["Quantity"]) if editing_asset else 0.0,
+                step=0.1,
+                format="%.4f",
+                help="Number of shares you currently own"
+            )
+        
+        with col3:
+            form_price = st.number_input(
+                "Current Price (€) *",
+                min_value=0.01,
+                value=float(editing_asset["Price"]) if editing_asset else 100.0,
+                step=0.01,
+                format="%.2f",
+                help="Current market price per share"
+            )
         
         col1, col2, col3 = st.columns(3)
+        
         with col1:
-            st.metric("Current Portfolio Value", format_currency(total_value))
+            form_avg_cost = st.number_input(
+                "Average Cost (€) *",
+                min_value=0.0,
+                value=float(editing_asset["Avg Cost"]) if editing_asset else 100.0,
+                step=0.01,
+                format="%.2f",
+                help="Your average purchase price (for tax calculation)"
+            )
+        
         with col2:
-            st.metric("Number of Assets", len(edited_df))
+            form_tax_rate = st.number_input(
+                "Tax Rate (%) *",
+                min_value=0.0,
+                max_value=100.0,
+                value=float(editing_asset["Tax Rate (%)"]) if editing_asset else 26.0,
+                step=0.1,
+                format="%.2f",
+                help="Capital gains tax rate"
+            )
+        
         with col3:
-            st.metric("Target Weights Sum", f"{total_target:.2f}%")
+            form_target_weight = st.number_input(
+                "Target Weight (%) *",
+                min_value=0.0,
+                max_value=100.0,
+                value=float(editing_asset["Target Weight (%)"]) if editing_asset else 0.0,
+                step=0.1,
+                format="%.2f",
+                help="Desired portfolio allocation"
+            )
+        
+        # Commission fields in expander
+        with st.expander("📋 Commission Settings (Optional)", expanded=False):
+            st.markdown("**Buy Commissions**")
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                form_buy_fixed = st.number_input(
+                    "Fixed Fee (€)",
+                    min_value=0.0,
+                    value=float(editing_asset["Buy Fixed Fee"]) if editing_asset else 0.0,
+                    step=0.01,
+                    format="%.2f",
+                    key="buy_fixed"
+                )
+            
+            with col2:
+                form_buy_pct = st.number_input(
+                    "% Fee",
+                    min_value=0.0,
+                    max_value=100.0,
+                    value=float(editing_asset["Buy % Fee"]) if editing_asset else 0.0,
+                    step=0.001,
+                    format="%.3f",
+                    key="buy_pct"
+                )
+            
+            with col3:
+                form_buy_min = st.number_input(
+                    "Min Fee (€)",
+                    min_value=0.0,
+                    value=float(editing_asset["Buy Min Fee"]) if editing_asset else 0.0,
+                    step=0.01,
+                    format="%.2f",
+                    key="buy_min"
+                )
+            
+            with col4:
+                form_buy_max = st.number_input(
+                    "Max Fee (€)",
+                    min_value=0.0,
+                    value=float(editing_asset["Buy Max Fee"]) if editing_asset else 0.0,
+                    step=0.01,
+                    format="%.2f",
+                    key="buy_max"
+                )
+            
+            st.markdown("**Sell Commissions**")
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                form_sell_fixed = st.number_input(
+                    "Fixed Fee (€)",
+                    min_value=0.0,
+                    value=float(editing_asset["Sell Fixed Fee"]) if editing_asset else 0.0,
+                    step=0.01,
+                    format="%.2f",
+                    key="sell_fixed"
+                )
+            
+            with col2:
+                form_sell_pct = st.number_input(
+                    "% Fee",
+                    min_value=0.0,
+                    max_value=100.0,
+                    value=float(editing_asset["Sell % Fee"]) if editing_asset else 0.0,
+                    step=0.001,
+                    format="%.3f",
+                    key="sell_pct"
+                )
+            
+            with col3:
+                form_sell_min = st.number_input(
+                    "Min Fee (€)",
+                    min_value=0.0,
+                    value=float(editing_asset["Sell Min Fee"]) if editing_asset else 0.0,
+                    step=0.01,
+                    format="%.2f",
+                    key="sell_min"
+                )
+            
+            with col4:
+                form_sell_max = st.number_input(
+                    "Max Fee (€)",
+                    min_value=0.0,
+                    value=float(editing_asset["Sell Max Fee"]) if editing_asset else 0.0,
+                    step=0.01,
+                    format="%.2f",
+                    key="sell_max"
+                )
+        
+        # Form submit buttons
+        st.markdown("---")
+        col1, col2, col3 = st.columns([2, 1, 1])
+        
+        with col1:
+            if st.session_state.editing_asset_index is not None:
+                submit_button = st.form_submit_button("✅ Update Asset", type="primary", use_container_width=True)
+            else:
+                submit_button = st.form_submit_button("➕ Add Asset to Portfolio", type="primary", use_container_width=True)
+        
+        with col2:
+            if st.session_state.editing_asset_index is not None:
+                cancel_button = st.form_submit_button("❌ Cancel", use_container_width=True)
+            else:
+                cancel_button = False
+        
+        # Process form submission
+        if submit_button:
+            # Validate basic fields
+            is_valid, error_msg = validate_asset_input(
+                form_symbol, form_quantity, form_price, form_avg_cost,
+                form_tax_rate, form_target_weight
+            )
+            
+            if not is_valid:
+                st.error(f"❌ {error_msg}")
+            else:
+                # Validate commission fields
+                is_valid_comm, error_msg_comm = validate_commission_fields(
+                    form_buy_fixed, form_buy_pct, form_buy_min, form_buy_max,
+                    form_sell_fixed, form_sell_pct, form_sell_min, form_sell_max
+                )
+                
+                if not is_valid_comm:
+                    st.error(f"❌ {error_msg_comm}")
+                else:
+                    # Check for duplicate symbol
+                    if check_duplicate_symbol(form_symbol, st.session_state.editing_asset_index):
+                        st.error(f"❌ Asset '{form_symbol}' already exists in portfolio")
+                    else:
+                        # Create asset data dictionary
+                        asset_data = {
+                            "Symbol": form_symbol.strip(),
+                            "Quantity": form_quantity,
+                            "Price": form_price,
+                            "Avg Cost": form_avg_cost,
+                            "Tax Rate (%)": form_tax_rate,
+                            "Target Weight (%)": form_target_weight,
+                            "Buy Fixed Fee": form_buy_fixed,
+                            "Buy % Fee": form_buy_pct,
+                            "Buy Min Fee": form_buy_min,
+                            "Buy Max Fee": form_buy_max,
+                            "Sell Fixed Fee": form_sell_fixed,
+                            "Sell % Fee": form_sell_pct,
+                            "Sell Min Fee": form_sell_min,
+                            "Sell Max Fee": form_sell_max,
+                        }
+                        
+                        # Add or update asset
+                        if st.session_state.editing_asset_index is not None:
+                            update_asset_in_portfolio(st.session_state.editing_asset_index, asset_data)
+                            st.success(f"✅ Asset '{form_symbol}' updated successfully!")
+                            st.session_state.editing_asset_index = None
+                        else:
+                            add_asset_to_portfolio(asset_data)
+                            st.success(f"✅ Asset '{form_symbol}' added to portfolio!")
+                        
+                        st.rerun()
+        
+        if cancel_button:
+            st.session_state.editing_asset_index = None
+            st.rerun()
+    
+    st.markdown("---")
+    
+    # Display current assets
+    st.subheader("Current Portfolio Assets")
+    
+    if len(st.session_state.assets_data) == 0:
+        st.info("📝 No assets in portfolio. Add your first asset using the form above.")
     else:
-        st.error(f"❌ Validation Error: {error_msg}")
-        st.warning("Please fix the errors above before running analysis.")
+        # Display each asset as a card
+        for i, asset in enumerate(st.session_state.assets_data):
+            with st.container():
+                col1, col2 = st.columns([4, 1])
+                
+                with col1:
+                    # Asset header
+                    current_value = asset["Quantity"] * asset["Price"]
+                    st.markdown(f"### {asset['Symbol']}")
+                    st.markdown(f"**Value:** {format_currency(current_value)} | "
+                              f"**Target:** {asset['Target Weight (%)']}% | "
+                              f"**Quantity:** {asset['Quantity']:.4f} @ {format_currency(asset['Price'])}")
+                    
+                    # Additional details in expander
+                    with st.expander("📊 Details", expanded=False):
+                        detail_col1, detail_col2, detail_col3 = st.columns(3)
+                        
+                        with detail_col1:
+                            st.markdown("**Holdings**")
+                            st.markdown(f"- Quantity: {asset['Quantity']:.4f}")
+                            st.markdown(f"- Current Price: {format_currency(asset['Price'])}")
+                            st.markdown(f"- Current Value: {format_currency(current_value)}")
+                        
+                        with detail_col2:
+                            st.markdown("**Tax & Target**")
+                            st.markdown(f"- Avg Cost: {format_currency(asset['Avg Cost'])}")
+                            st.markdown(f"- Tax Rate: {asset['Tax Rate (%)']}%")
+                            st.markdown(f"- Target Weight: {asset['Target Weight (%)']}%")
+                        
+                        with detail_col3:
+                            st.markdown("**Commissions**")
+                            has_buy_comm = (asset['Buy Fixed Fee'] > 0 or asset['Buy % Fee'] > 0 or 
+                                          asset['Buy Min Fee'] > 0 or asset['Buy Max Fee'] > 0)
+                            has_sell_comm = (asset['Sell Fixed Fee'] > 0 or asset['Sell % Fee'] > 0 or 
+                                           asset['Sell Min Fee'] > 0 or asset['Sell Max Fee'] > 0)
+                            
+                            if has_buy_comm:
+                                st.markdown(f"- Buy: {format_currency(asset['Buy Fixed Fee'])} + {asset['Buy % Fee']}%")
+                            else:
+                                st.markdown("- Buy: None")
+                            
+                            if has_sell_comm:
+                                st.markdown(f"- Sell: {format_currency(asset['Sell Fixed Fee'])} + {asset['Sell % Fee']}%")
+                            else:
+                                st.markdown("- Sell: None")
+                
+                with col2:
+                    # Action buttons
+                    st.markdown("<div style='padding-top: 8px;'></div>", unsafe_allow_html=True)
+                    
+                    if st.button("✏️ Edit", key=f"edit_{i}", use_container_width=True):
+                        st.session_state.editing_asset_index = i
+                        st.rerun()
+                    
+                    if st.button("🗑️ Delete", key=f"delete_{i}", use_container_width=True, type="secondary"):
+                        delete_asset_from_portfolio(i)
+                        st.rerun()
+                
+                st.markdown("---")
+        
+        # Portfolio summary
+        st.subheader("Portfolio Summary")
+        
+        df = assets_to_dataframe(st.session_state.assets_data)
+        is_valid, error_msg = validate_assets_data(df)
+        
+        if is_valid:
+            st.success("✅ Portfolio is valid and ready for analysis")
+            
+            total_value = sum(row["Quantity"] * row["Price"] for row in st.session_state.assets_data)
+            total_target = df["Target Weight (%)"].sum()
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Total Portfolio Value", format_currency(total_value))
+            with col2:
+                st.metric("Number of Assets", len(df))
+            with col3:
+                st.metric("Target Weights Sum", f"{total_target:.2f}%")
+        else:
+            st.error(f"❌ Portfolio Validation Error: {error_msg}")
+            st.warning("Fix the issue before running analysis.")
     
     # Quick actions
     st.markdown("---")
@@ -230,9 +599,7 @@ with tab1:
     with col1:
         if st.button("🔄 Reset to Example", key="reset_button", help="Reset to default 3-asset example portfolio"):
             st.session_state.assets_data = create_default_assets()
-            # Delete the widget's key to force full reinitialization
-            if "assets_table_editor" in st.session_state:
-                del st.session_state.assets_table_editor
+            st.session_state.editing_asset_index = None
             st.rerun()
 
 
