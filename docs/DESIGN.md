@@ -1,88 +1,95 @@
-# Scelte Progettuali
+# Design Decisions
 
-Questo documento spiega le motivazioni dietro le scelte architetturali e algoritmiche del progetto.
+This document explains the rationale behind the architectural and algorithmic choices of the project.
 
-## Filosofia del Progetto
+## Project Philosophy
 
-### Perché NON un ottimizzatore?
+### Why NOT an Optimizer?
 
-Molti tool di portfolio management usano ottimizzatori numerici (solver, programmazione quadratica, ecc.). Noi abbiamo scelto di **non** farlo per diverse ragioni:
+Many portfolio management tools use numerical optimizers (solvers, quadratic programming, etc.). We chose **not** to do this for several reasons:
 
-#### 1. Trasparenza e Spiegabilità
+#### 1. Transparency and Explainability
 
-Un ottimizzatore numerico è una "black box":
-- L'utente non capisce *perché* una certa operazione viene suggerita
-- È difficile debuggare quando qualcosa va storto
-- Non è possibile tracciare il processo decisionale
+A numerical optimizer is a "black box":
+- Users don't understand *why* a certain operation is suggested
+- It's difficult to debug when something goes wrong
+- The decision-making process cannot be traced
 
-**La nostra scelta**: Matematica elementare, ogni passo è comprensibile.
+**Our choice**: Elementary mathematics, every step is understandable.
 
-#### 2. Determinismo
+#### 2. Determinism
 
-Molti solver numerici sono stocastici o dipendono da condizioni iniziali:
-- Esecuzioni diverse → risultati leggermente diversi
-- Difficile da testare
-- Non riproducibile
+Many numerical solvers are stochastic or depend on initial conditions:
+- Different executions → slightly different results
+- Difficult to test
+- Not reproducible
 
-**La nostra scelta**: Stesso input → **sempre** lo stesso output.
+**Our choice**: Same input → **always** the same output.
 
-#### 3. Semplicità
+#### 3. Simplicity
 
-L'ottimizzazione aggiunge dipendenze pesanti:
-- Librerie come SciPy, CVXPY, o solver commerciali
-- Maggiore complessità del codice
-- Più difficile da mantenere
+Optimization adds heavy dependencies:
+- Libraries like SciPy, CVXPY, or commercial solvers
+- Greater code complexity
+- Harder to maintain
 
-**La nostra scelta**: Solo pandas e operazioni elementari.
+**Our choice**: Only pandas and elementary operations.
 
-#### 4. Il problema non lo richiede
+#### 4. The Problem Doesn't Require It
 
-Il ribilanciamento a percentuali target è un problema **matematicamente semplice**:
-- Non servono funzioni obiettivo complesse
-- Non ci sono vincoli non lineari
-- La soluzione "ovvia" (proporzionale) funziona bene
+Rebalancing to target percentages is a **mathematically simple** problem:
+- No complex objective functions needed
+- No non-linear constraints
+- The "obvious" solution (proportional) works well
 
-**La nostra scelta**: Keep it simple.
+**Our choice**: Keep it simple.
 
 ---
 
-## Architettura del Software
+## Software Architecture
 
-### Separazione Core / I/O
+### Core / I/O Separation
 
 ```
 ┌─────────────────┐
-│   Core Engine   │  ← Matematica pura, NO dipendenze esterne
+│   Core Engine   │  ← Pure mathematics, NO external dependencies
 │  (engine/)      │
 └────────┬────────┘
          │
-         │  usa
+         │  uses
          ▼
 ┌─────────────────┐
-│     Models      │  ← Strutture dati pure
+│     Models      │  ← Pure data structures
 │   (models/)     │
 └────────┬────────┘
          │
-         │  usato da
+         │  used by
          ▼
 ┌─────────────────┐
-│   I/O Layer     │  ← Excel, CSV, JSON, ...  (può dipendere da librerie esterne)
+│   I/O Layer     │  ← Excel, CSV, JSON, ...  (may depend on external libraries)
 │    (io/)        │
+└─────────────────┘
+         ▲
+         │
+         │  configured by
+┌─────────────────┐
+│    Policies     │  ← Behavioral configuration
+│  (policies/)    │
 └─────────────────┘
 ```
 
-#### Vantaggi
+#### Advantages
 
-1. **Testabilità**: Il core engine può essere testato senza creare file Excel
-2. **Estendibilità**: Nuovi formati I/O senza toccare il core
-3. **Portabilità**: Il core può essere usato in contesti diversi (CLI, web app, Jupyter, ecc.)
+1. **Testability**: The core engine can be tested without creating Excel files
+2. **Extensibility**: New I/O formats without touching the core
+3. **Portability**: The core can be used in different contexts (CLI, web app, Jupyter, etc.)
 
-### Models: Data Classes Pure
+### Models: Pure Data Classes
 
-Le classi in `models/` sono **semplici contenitori di dati**:
-- Nessuna logica di business
-- Nessuna dipendenza esterna
-- Facilmente serializzabili
+Classes in `models/` are **simple data containers**:
+- No business logic
+- No external dependencies
+- Easily serializable
 
 ```python
 @dataclass
@@ -93,331 +100,366 @@ class Asset:
     avg_cost: float
     tax_rate: float
     target_weight: float
+    # Commission parameters
+    commission_buy_fixed: float = 0.0
+    commission_buy_percent: float = 0.0
+    # ... (and sell commissions)
 ```
 
-### Engine: Funzioni Pure
+### Engine: Pure Functions
 
-Il core engine è composto da funzioni pure (o quasi):
-- Input → elaborazione → output
-- Nessun side effect
-- Nessuno stato globale
+The core engine consists of pure (or nearly pure) functions:
+- Input → processing → output
+- No side effects
+- No global state
 
 ```python
 def rebalance(portfolio: Portfolio) -> RebalancingResult:
-    # Step 1-8 dell'algoritmo
+    # Steps 1-8 of the algorithm
     ...
     return result
 ```
 
-### Policies: Configurabilità
+### Policies: Configurability
 
-Le policy permettono di configurare comportamenti senza modificare il core:
-- `RoundingPolicy`: Come arrotondare le quote
-- `TolerancePolicy`: Quanto scostamento accettare
-- `TaxPolicy`: Gestione tassazione (future estensioni)
-
----
-
-## Scelte Algoritmiche
-
-### Chiusura del Cash Flow: Scalatura Proporzionale
-
-#### Il Problema
-
-Dopo aver calcolato ΔQᵢ, il cash flow potrebbe non essere zero:
-```
-CF = Σ cash_inᵢ − Σ cash_outᵢ ≠ 0
-```
-
-#### Approccio 1: Ottimizzazione (SCARTATO)
-
-Potremmo formulare un problema di ottimizzazione:
-
-```
-minimizza:  Σᵢ (ŵᵢ,new − wᵢ)²
-vincolo:    CF = 0
-```
-
-Problemi:
-- Richiede un solver
-- Non deterministico
-- Complesso
-- Overkill per il problema
-
-#### Approccio 2: Scalatura Proporzionale (SCELTO)
-
-Scaliamo solo gli acquisti in modo proporzionale:
-
-```
-ΔQᵢ,adjusted = ΔQᵢ × (1 + CF / Σⱼ cash_outⱼ)    per ΔQᵢ > 0
-```
-
-Vantaggi:
-- Semplice (una riga di codice)
-- Deterministico
-- Intuitivo: "riduci tutti gli acquisti della stessa percentuale"
-- Nessuna dipendenza esterna
-
-Svantaggi:
-- Non è "ottimale" in senso matematico
-- Potrebbe sbilanciare leggermente i pesi
-
-**Verdetto**: I vantaggi superano di gran lunga gli svantaggi. La differenza pratica è trascurabile.
-
-### Tassazione: Approccio Semplificato
-
-La formula per il cash_in include la tassazione:
-
-```
-cash_inᵢ = |ΔQᵢ| × Pᵢ × (1 − Tᵢ × max(0, Pᵢ − PMCᵢ))
-```
-
-#### Assunzioni
-
-1. **Capital gain tax lineare**: Aliquota costante Tᵢ
-2. **No loss harvesting**: Se vendo in perdita, la tassa è 0, ma non recupero perdite pregresse
-3. **No FIFO/LIFO**: Uso il PMC (prezzo medio) per semplicità
-
-#### Estensioni Future
-
-- **Tax loss harvesting**: Vendere asset in perdita per compensare guadagni
-- **FIFO/LIFO**: Scegliere quali lotti vendere
-- **Aliquote progressive**: Gestire scaglioni di imposta
-
-**Scelta attuale**: Manteniamo semplice. Il 90% dei casi è coperto.
-
-### Arrotondamento: Fuori dal Core
-
-L'arrotondamento a quote intere è **opzionale** e avviene **dopo** il calcolo:
-
-1. Il core calcola ΔQᵢ come numero decimale
-2. Una policy (opzionale) arrotonda
-3. Vengono ricalcolati CF e deviazioni residue
-
-#### Perché?
-
-- **Flessibilità**: Alcuni asset (fondi, frazioni di azioni) permettono quantità decimali
-- **Separazione**: Il core non deve sapere delle restrizioni di quota intera
-- **Trasparenza**: L'utente vede sia il valore "ideale" che quello arrotondato
+Policies allow behavior configuration without modifying the core:
+- `RoundingPolicy`: How to round shares
+- Future extensions: `TolerancePolicy`, `TaxPolicy`, etc.
 
 ---
 
-## Scelte di Implementazione
+## Algorithmic Choices
 
-### Python come Linguaggio
+### Cash Flow Closure: Proportional Scaling
 
-**Vantaggi**:
-- Leggibile: il codice è quasi pseudocodice
-- Ecosistema ricco: pandas, pytest, black, mypy
-- Portabile: gira ovunque
-- Popolare nella finanza quantitativa
+#### The Problem
 
-**Svantaggi**:
-- Prestazioni: più lento di C++/Rust
-- Type safety: opzionale (mypy aiuta)
+After calculating ΔQᵢ, the cash flow might not be at target:
+```
+CF = Σ cash_inᵢ − Σ cash_outᵢ ≠ CF_target
+```
 
-**Verdetto**: Per questo tipo di applicazione, Python è perfetto. Le prestazioni non sono critiche (< 1s anche per centinaia di asset).
+Where `CF_target = -cash_available` (negative because we want to spend it).
 
-### Pandas vs Numpy
+#### Approach 1: Optimization (REJECTED)
 
-**Scelta**: Usiamo pandas per I/O (Excel), ma il core usa strutture native.
+We could formulate an optimization problem:
 
-**Perché?**
-- Pandas è comodo per leggere/scrivere Excel
-- Ma per il core, liste e dataclass sono più semplici
-- Meno dipendenze "pesanti" nel core
+```
+minimize:  Σᵢ (ŵᵢ,new − wᵢ)²
+subject to: CF = CF_target
+```
 
-### Type Hints e MyPy
+Problems:
+- Requires a solver
+- Non-deterministic
+- Complex
+- Overkill for the problem
 
-Il codice usa type hints completi:
+#### Approach 2: Proportional Scaling (CHOSEN)
+
+Scale only purchases proportionally:
+
+```
+ΔQᵢ,adjusted = ΔQᵢ × (1 + (CF − CF_target) / Σⱼ cash_outⱼ)    for ΔQᵢ > 0
+```
+
+Advantages:
+- Simple (one line of code)
+- Deterministic
+- Intuitive: "reduce all purchases by the same percentage"
+- No external dependencies
+
+Disadvantages:
+- Not "optimal" in mathematical sense
+- May slightly unbalance weights
+
+**Verdict**: The advantages far outweigh the disadvantages. The practical difference is negligible.
+
+### Taxation: Simplified Approach
+
+The cash_in formula includes taxation:
+
+```
+cash_inᵢ = |ΔQᵢ| × (Pᵢ − Tᵢ × max(0, Pᵢ − PMCᵢ)) − C_sell,i
+```
+
+Or expanded:
+```
+cash_inᵢ = |ΔQᵢ| × Pᵢ − |ΔQᵢ| × Tᵢ × max(0, Pᵢ − PMCᵢ) − C_sell,i
+```
+
+#### Assumptions
+
+1. **Linear capital gains tax**: Constant rate Tᵢ
+2. **No loss harvesting**: If selling at a loss, tax is 0, but we don't recover prior losses
+3. **No FIFO/LIFO**: Use average cost (PMC) for simplicity
+
+#### Future Extensions
+
+- **Tax loss harvesting**: Sell assets at a loss to offset gains
+- **FIFO/LIFO**: Choose which lots to sell
+- **Progressive tax rates**: Handle tax brackets
+
+**Current choice**: Keep it simple. 90% of cases are covered.
+
+### Broker Commissions: Implemented and Configurable
+
+The system includes comprehensive broker commission handling:
+
+```python
+# For each asset, commissions can be configured separately for buy/sell
+commission = fixed_fee + bounded(value × percent, min, max)
+```
+
+#### Features
+
+1. **Fixed component**: Flat fee per transaction
+2. **Percentage component**: Proportional to transaction value
+3. **Min/max bounds**: For percentage-based commissions
+4. **Separate buy/sell**: Different commission structures for purchases and sales
+
+#### Impact on Cash Flow
+
+- **Sales**: `cash_in = gross_proceeds − tax − sell_commission`
+- **Purchases**: `cash_out = purchase_cost + buy_commission`
+
+This affects the cash flow closure calculation, making it more realistic for real-world trading.
+
+### Rounding: Outside the Core
+
+Rounding to integer shares is **optional** and happens **after** calculation:
+
+1. The core calculates ΔQᵢ as a decimal number
+2. An (optional) policy rounds it
+3. CF and residual deviations are recalculated
+
+#### Why?
+
+- **Flexibility**: Some assets (funds, fractional shares) allow decimal quantities
+- **Separation**: The core doesn't need to know about integer share restrictions
+- **Transparency**: Users see both the "ideal" value and the rounded value
+
+---
+
+## Implementation Choices
+
+### Python as Language
+
+**Advantages**:
+- Readable: code is almost pseudocode
+- Rich ecosystem: pandas, pytest, black, mypy
+- Portable: runs everywhere
+- Popular in quantitative finance
+
+**Disadvantages**:
+- Performance: slower than C++/Rust
+- Type safety: optional (mypy helps)
+
+**Verdict**: For this type of application, Python is perfect. Performance is not critical (< 1s even for hundreds of assets).
+
+### Pandas vs NumPy
+
+**Choice**: We use pandas for I/O (Excel), but the core uses native structures.
+
+**Why?**
+- Pandas is convenient for reading/writing Excel
+- But for the core, lists and dataclasses are simpler
+- Fewer "heavy" dependencies in the core
+
+### Type Hints and MyPy
+
+The code uses complete type hints:
 
 ```python
 def rebalance(portfolio: Portfolio) -> RebalancingResult:
     ...
 ```
 
-**Vantaggi**:
-- Documentazione inline
-- Controllo statico con mypy
-- Migliore IDE support (autocomplete)
-- Più difficile fare errori
+**Advantages**:
+- Inline documentation
+- Static checking with mypy
+- Better IDE support (autocomplete)
+- Harder to make mistakes
 
 ### Testing Strategy
 
 ```
 tests/
-├── test_models.py        # Test delle strutture dati
-├── test_engine.py        # Test del core engine
-├── test_policies.py      # Test delle policy
-├── test_io_excel.py      # Test I/O Excel
-└── test_integration.py   # Test end-to-end
+├── test_models.py        # Test data structures
+├── test_engine.py        # Test core engine
+├── test_policies.py      # Test policies
+├── test_io_excel.py      # Test Excel I/O
+└── test_integration.py   # End-to-end tests
 ```
 
-**Obiettivo**: 100% code coverage del core engine.
+**Goal**: 100% code coverage of the core engine.
 
 ---
 
-## Scelte NON Fatte (e Perché)
+## Choices NOT Made (and Why)
 
-### Multi-obiettivo
+### Multi-Objective Optimization
 
-**Non implementato**: Ottimizzazione simultanea di più obiettivi (es. minimizzare tasse E minimizzare numero di operazioni).
+**Not implemented**: Simultaneous optimization of multiple objectives (e.g., minimize taxes AND minimize number of operations).
 
-**Perché**: Aggiunge complessità enorme. L'utente può scegliere policy diverse per ottenere risultati diversi.
+**Why**: Adds enormous complexity. Users can choose different policies to achieve different results.
 
-### Integrazione con Broker
+### Broker Integration
 
-**Non implementato**: Esecuzione automatica degli ordini presso un broker.
+**Not implemented**: Automatic order execution with a broker.
 
-**Perché**: 
-- Aumenta la responsabilità legale
-- Ogni broker ha API diverse
-- Richiede gestione errori, autenticazione, sicurezza
-- Fuori dallo scope: "calcolo operazioni", non "eseguo operazioni"
+**Why**: 
+- Increases legal liability
+- Every broker has different APIs
+- Requires error handling, authentication, security
+- Out of scope: "calculate operations", not "execute operations"
 
-### Recupero Prezzi Automatico
+### Automatic Price Retrieval
 
-**Non implementato**: Download automatico dei prezzi da Yahoo Finance, Alpha Vantage, ecc.
+**Not implemented**: Automatic download of prices from Yahoo Finance, Alpha Vantage, etc.
 
-**Perché**:
-- API esterne possono cambiare o diventare a pagamento
+**Why**:
+- External APIs can change or become paid
 - Rate limiting
-- Diversi provider per diversi strumenti
-- L'utente spesso ha già i prezzi dal suo broker
+- Different providers for different instruments
+- Users often already have prices from their broker
 
-**Compromesso**: Forniamo script di esempio nella cartella `examples/` per chi vuole farlo.
+**Compromise**: We provide example scripts in the `examples/` folder for those who want it.
 
 ### Machine Learning
 
-**Non implementato**: Predizioni, clustering di asset, ecc.
+**Not implemented**: Predictions, asset clustering, etc.
 
-**Perché**: Completamente fuori scope. Questo tool NON fa previsioni. Solo matematica deterministica.
+**Why**: Completely out of scope. This tool does NOT make predictions. Only deterministic mathematics.
 
-### Gestione Multi-Valuta
+### Multi-Currency Management
 
-**Non implementato**: Portafogli con asset in valute diverse.
+**Not implemented**: Portfolios with assets in different currencies.
 
-**Perché**: 
-- Aggiunge complessità (tassi di cambio, hedging, ecc.)
-- Il 90% degli utenti ha portafogli monovaluta
-- Può essere aggiunto in futuro come estensione
+**Why**: 
+- Adds complexity (exchange rates, hedging, etc.)
+- 90% of users have single-currency portfolios
+- Can be added in the future as an extension
 
-**Workaround attuale**: L'utente converte manualmente tutti i prezzi in una valuta di riferimento.
+**Current workaround**: Users manually convert all prices to a reference currency.
 
 ---
 
-## Vincoli di Design
+## Design Constraints
 
 ### Must Have
 
-1. ✅ Determinismo
-2. ✅ Trasparenza
-3. ✅ Nessuna ottimizzazione numerica complessa
+1. ✅ Determinism
+2. ✅ Transparency
+3. ✅ No complex numerical optimization
 4. ✅ Tax-aware
-5. ✅ Cash-flow neutral
+5. ✅ Commission-aware
+6. ✅ Cash-flow neutral or cash-deployment capable
 
 ### Should Have
 
-1. ✅ Gestione quote intere
-2. ✅ Input da Excel
-3. ✅ Output leggibile
-4. ✅ Documentazione completa
+1. ✅ Integer share handling
+2. ✅ Excel input
+3. ✅ Readable output
+4. ✅ Complete documentation
 
 ### Nice to Have
 
 1. ⏳ Web interface
-2. ⏳ Recupero prezzi automatico (esempio)
-3. ⏳ Export PDF del report
-4. ⏳ Multi-valuta
+2. ⏳ Automatic price retrieval (example)
+3. ⏳ PDF report export
+4. ⏳ Multi-currency
 
 ### Won't Have
 
-1. ❌ Ottimizzazione rischio/rendimento
+1. ❌ Risk/return optimization
 2. ❌ Asset selection
-3. ❌ Previsioni di mercato
-4. ❌ Integrazione broker automatica
+3. ❌ Market predictions
+4. ❌ Automatic broker integration
 5. ❌ Machine learning
 
 ---
 
 ## Performance
 
-### Complessità Temporale
+### Time Complexity
 
-- **Step 1-5**: O(N) dove N = numero di asset
+- **Steps 1-5**: O(N) where N = number of assets
 - **Step 6**: O(N)
 - **Step 7**: O(N)
 - **Step 8**: O(N)
 
-**Totale**: O(N)
+**Total**: O(N)
 
-### Benchmark
+### Benchmarks
 
-Su un laptop moderno (2020):
-- Portafoglio di 10 asset: < 1 ms
-- Portafoglio di 100 asset: < 10 ms
-- Portafoglio di 1000 asset: < 100 ms
+On a modern laptop (2020):
+- Portfolio of 10 assets: < 1 ms
+- Portfolio of 100 assets: < 10 ms
+- Portfolio of 1000 assets: < 100 ms
 
-Le prestazioni **non** sono un problema.
+Performance is **not** a problem.
 
 ---
 
-## Lezioni Apprese
+## Lessons Learned
 
 ### Keep It Simple
 
-La tentazione di "ottimizzare" era forte. Resistere e mantenere l'algoritmo semplice è stata la scelta giusta.
+The temptation to "optimize" was strong. Resisting and keeping the algorithm simple was the right choice.
 
-### Documentazione Prima del Codice
+### Documentation Before Code
 
-Scrivere prima le specifiche matematiche (ALGORITHM.md, VARIABLES.md) ha reso il coding molto più facile e meno soggetto a errori.
+Writing mathematical specifications first (ALGORITHM.md, VARIABLES.md) made coding much easier and less error-prone.
 
-### Testing È Fondamentale
+### Testing Is Fundamental
 
-Test completi permettono di:
-- Refactorare senza paura
-- Aggiungere funzionalità con fiducia
-- Documentare il comportamento atteso
+Comprehensive tests allow:
+- Refactoring without fear
+- Adding features with confidence
+- Documenting expected behavior
 
-### Separazione delle Responsabilità
+### Separation of Concerns
 
-Core engine separato da I/O è stata una scelta vincente. Permette riutilizzo e testabilità.
+Core engine separated from I/O was a winning choice. Enables reuse and testability.
 
 ---
 
-## Evoluzione Futura
+## Future Evolution
 
-Il progetto è progettato per essere estendibile:
+The project is designed to be extensible:
 
-### Versione 1.x (Attuale)
-- Core engine matematico
-- I/O Excel
-- Policy di base
+### Version 1.x (Current)
+- Mathematical core engine
+- Excel I/O
+- Basic policies
 - CLI
+- Broker commission support
 
-### Versione 2.x (Futura)
+### Version 2.x (Future)
 - Web interface (Flask/FastAPI + React)
-- Database per storico operazioni
-- Più formati di export (PDF, JSON, CSV)
-- API REST
+- Database for operation history
+- More export formats (PDF, JSON, CSV)
+- REST API
 
-### Versione 3.x (Visione)
-- Multi-valuta
+### Version 3.x (Vision)
+- Multi-currency
 - Tax loss harvesting
-- Vincoli avanzati (lotti, multipli)
-- Integrazione con data provider (opzionale)
+- Advanced constraints (lots, multiples)
+- Integration with data providers (optional)
 
-**Importante**: Il core engine rimarrà sempre **semplice e deterministico**. Le funzionalità avanzate saranno layer aggiuntivi.
+**Important**: The core engine will always remain **simple and deterministic**. Advanced features will be additional layers.
 
 ---
 
-## Conclusioni
+## Conclusions
 
-Questo progetto dimostra che:
+This project demonstrates that:
 
-1. **Semplice ≠ Stupido**: Un algoritmo elementare può risolvere problemi reali
-2. **Trasparenza > Ottimalità**: È più importante capire cosa fa il software che avere una soluzione "perfetta"
-3. **Determinismo > Flessibilità**: Per tool finanziari, la riproducibilità è critica
-4. **Documentazione = Codice**: Un progetto ben documentato è un progetto utilizzabile
+1. **Simple ≠ Stupid**: An elementary algorithm can solve real problems
+2. **Transparency > Optimality**: It's more important to understand what the software does than to have a "perfect" solution
+3. **Determinism > Flexibility**: For financial tools, reproducibility is critical
+4. **Documentation = Code**: A well-documented project is a usable project
 
-L'obiettivo è stato raggiunto: **un tool che chiunque può capire, criticare e usare con fiducia**.
+The goal has been achieved: **a tool that anyone can understand, critique, and use with confidence**.
