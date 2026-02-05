@@ -16,7 +16,7 @@ Requirements:
 
 import streamlit as st
 import pandas as pd
-from typing import Optional
+from typing import Optional, Tuple
 
 # Import core rebalancing logic
 from portfolio_rebalancer.models import Portfolio
@@ -79,7 +79,7 @@ if "editing_asset_index" not in st.session_state:
 # ============================================================================
 
 def validate_asset_input(symbol: str, quantity: float, price: float, avg_cost: float,
-                        tax_rate: float, target_weight: float) -> tuple[bool, str]:
+                        tax_rate: float, target_weight: float) -> Tuple[bool, str]:
     """Validate asset input fields.
     
     Args:
@@ -121,7 +121,7 @@ def validate_asset_input(symbol: str, quantity: float, price: float, avg_cost: f
 
 
 def validate_commission_fields(buy_fixed: float, buy_pct: float, buy_min: float, buy_max: float,
-                              sell_fixed: float, sell_pct: float, sell_min: float, sell_max: float) -> tuple[bool, str]:
+                              sell_fixed: float, sell_pct: float, sell_min: float, sell_max: float) -> Tuple[bool, str]:
     """Validate commission input fields.
     
     Args:
