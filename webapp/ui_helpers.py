@@ -5,7 +5,7 @@ and converting between UI representations and core domain models.
 """
 
 import pandas as pd
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 from portfolio_rebalancer.models import Asset, Portfolio
 
 
@@ -114,7 +114,7 @@ def dataframe_to_assets(df: pd.DataFrame) -> List[Asset]:
     return assets
 
 
-def validate_assets_data(df: pd.DataFrame) -> tuple[bool, str]:
+def validate_assets_data(df: pd.DataFrame) -> Tuple[bool, str]:
     """Validate asset data from DataFrame.
     
     Args:
