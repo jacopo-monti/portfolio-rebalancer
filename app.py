@@ -51,6 +51,9 @@ st.set_page_config(
 # ============================================================================
 # SESSION STATE INITIALIZATION
 # ============================================================================
+# IMPORTANT: Initialize ALL session state variables at the top level
+# BEFORE any widgets are created. This prevents settings from being reset
+# during reruns triggered by portfolio modifications.
 
 if "assets_data" not in st.session_state:
     st.session_state.assets_data = create_default_assets()
@@ -64,6 +67,7 @@ if "portfolio_name_input" not in st.session_state:
 if "cash_available_input" not in st.session_state:
     st.session_state.cash_available_input = 0.0
 
+# Settings persistence: Initialize before any widget creation
 if "apply_rounding_checkbox" not in st.session_state:
     st.session_state.apply_rounding_checkbox = False
 
@@ -192,6 +196,19 @@ def check_duplicate_symbol(symbol: str, exclude_index: Optional[int] = None) -> 
         if i != exclude_index and asset["Symbol"].upper() == symbol.upper():
             return True
     return False
+
+
+def get_portfolio_validation_status() -> Tuple[bool, str]:
+    """Check current portfolio validation status.
+    
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if len(st.session_state.assets_data) == 0:
+        return False, "Portfolio is empty. Add at least one asset."
+    
+    df = assets_to_dataframe(st.session_state.assets_data)
+    return validate_assets_data(df)
 
 
 # ============================================================================
@@ -614,7 +631,14 @@ with tab2:
     Results mirror the structure of the Excel output file.
     """)
     
-    if st.button("▶️ Run Rebalancing Analysis", type="primary", use_container_width=True, key="run_analysis_button"):
+    # Check portfolio validation status before allowing analysis
+    portfolio_valid, portfolio_error = get_portfolio_validation_status()
+    
+    if not portfolio_valid:
+        st.warning(f"⚠️ Cannot run analysis: {portfolio_error}")
+        st.info("👉 Please go to the **Target & Portfolio** tab to fix the portfolio configuration.")
+    
+    if st.button("▶️ Run Rebalancing Analysis", type="primary", use_container_width=True, key="run_analysis_button", disabled=not portfolio_valid):
         df = assets_to_dataframe(st.session_state.assets_data)
         is_valid, error_msg = validate_assets_data(df)
         
@@ -651,143 +675,162 @@ with tab2:
                 st.session_state.rebalancing_result = None
     
     if st.session_state.rebalancing_result is not None:
-        result = st.session_state.rebalancing_result
-        
-        st.markdown("---")
-        st.subheader("📊 Current Portfolio State")
-        st.markdown("Your portfolio before rebalancing:")
-        
+        # Validate portfolio before displaying results to prevent crashes
         df = assets_to_dataframe(st.session_state.assets_data)
-        assets = dataframe_to_assets(df)
-        portfolio = Portfolio(
-            assets=assets,
-            cash_available=st.session_state.cash_available_input,
-            name=st.session_state.portfolio_name_input,
-        )
+        is_valid, error_msg = validate_assets_data(df)
         
-        engine = RebalancingEngine()
-        engine._compute_current_state(portfolio)
-        
-        current_df = create_current_state_dataframe(portfolio)
-        st.dataframe(current_df, use_container_width=True, hide_index=True)
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric("Total Value (Before)", format_currency(result.total_value_before))
-        with col2:
-            if st.session_state.cash_available_input > 0:
-                st.metric("Available Cash", format_currency(st.session_state.cash_available_input))
-        
-        st.markdown("---")
-        st.subheader("🔄 Required Operations")
-        st.markdown("Buy and sell operations needed to reach target allocation:")
-        
-        operations_df = create_operations_dataframe(result)
-        st.dataframe(operations_df, use_container_width=True, hide_index=True)
-        
-        st.markdown("---")
-        st.subheader("💰 Cash Flow Summary")
-        st.markdown("Financial impact of the rebalancing operations:")
-        
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric(
-                "Cash from Sales",
-                format_currency(result.total_cash_in),
-                help="Total cash generated from selling assets (after tax and commissions)"
-            )
-        with col2:
-            st.metric(
-                "Cash for Purchases",
-                format_currency(result.total_cash_out),
-                help="Total cash needed for buying assets (including commissions)"
-            )
-        with col3:
-            cash_flow = result.cash_flow
-            st.metric(
-                "Net Cash Flow",
-                format_currency(cash_flow),
-                delta=None,
-                help="Positive = surplus, Negative = you need to add cash, ~0 = balanced"
-            )
-        
-        if abs(cash_flow) < 1.0:
-            st.success("✅ Cash flow is balanced (no external funds needed)")
-        elif cash_flow < -1.0:
-            st.warning(f"⚠️ You'll need to add {format_currency(abs(cash_flow))} to complete purchases")
+        if not is_valid:
+            # Portfolio became invalid after results were calculated
+            st.error(f"⚠️ Portfolio configuration has changed and is no longer valid: {error_msg}")
+            st.warning("👉 Please go to the **Target & Portfolio** tab to fix the issues, then run the analysis again.")
+            st.info("The previous results are no longer accurate and cannot be displayed.")
         else:
-            st.info(f"ℹ️ You'll have {format_currency(cash_flow)} left over after rebalancing")
-        
-        st.markdown("---")
-        st.subheader("💳 Rebalancing Cost Breakdown")
-        st.markdown("Total cost to execute the rebalancing operations:")
-        
-        total_tax = result.total_tax_paid
-        commission_buy = result.total_commission_buy
-        commission_sell = result.total_commission_sell
-        total_commission = result.total_commission
-        total_cost = total_tax + total_commission
-        
-        col1, col2, col3 = st.columns([2, 1, 1])
-        with col1:
-            st.metric(
-                "💸 Total Cost to Rebalance",
-                format_currency(total_cost),
-                help="Sum of all taxes and transaction fees"
-            )
-        
-        st.markdown("**Cost Components:**")
-        
-        breakdown_col1, breakdown_col2 = st.columns(2)
-        
-        with breakdown_col1:
-            st.markdown("**Transaction Fees (Commissions)**")
-            st.metric("Buy Commissions", format_currency(commission_buy))
-            st.metric("Sell Commissions", format_currency(commission_sell))
-            st.metric("Total Commissions", format_currency(total_commission))
-        
-        with breakdown_col2:
-            st.markdown("**Capital Gains Tax**")
-            st.metric("Total Tax Paid", format_currency(total_tax))
+            # Safe to display results
+            try:
+                result = st.session_state.rebalancing_result
+                
+                st.markdown("---")
+                st.subheader("📊 Current Portfolio State")
+                st.markdown("Your portfolio before rebalancing:")
+                
+                assets = dataframe_to_assets(df)
+                portfolio = Portfolio(
+                    assets=assets,
+                    cash_available=st.session_state.cash_available_input,
+                    name=st.session_state.portfolio_name_input,
+                )
+                
+                engine = RebalancingEngine()
+                engine._compute_current_state(portfolio)
+                
+                current_df = create_current_state_dataframe(portfolio)
+                st.dataframe(current_df, use_container_width=True, hide_index=True)
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric("Total Value (Before)", format_currency(result.total_value_before))
+                with col2:
+                    if st.session_state.cash_available_input > 0:
+                        st.metric("Available Cash", format_currency(st.session_state.cash_available_input))
+                
+                st.markdown("---")
+                st.subheader("🔄 Required Operations")
+                st.markdown("Buy and sell operations needed to reach target allocation:")
+                
+                operations_df = create_operations_dataframe(result)
+                st.dataframe(operations_df, use_container_width=True, hide_index=True)
+                
+                st.markdown("---")
+                st.subheader("💰 Cash Flow Summary")
+                st.markdown("Financial impact of the rebalancing operations:")
+                
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric(
+                        "Cash from Sales",
+                        format_currency(result.total_cash_in),
+                        help="Total cash generated from selling assets (after tax and commissions)"
+                    )
+                with col2:
+                    st.metric(
+                        "Cash for Purchases",
+                        format_currency(result.total_cash_out),
+                        help="Total cash needed for buying assets (including commissions)"
+                    )
+                with col3:
+                    cash_flow = result.cash_flow
+                    st.metric(
+                        "Net Cash Flow",
+                        format_currency(cash_flow),
+                        delta=None,
+                        help="Positive = surplus, Negative = you need to add cash, ~0 = balanced"
+                    )
+                
+                if abs(cash_flow) < 1.0:
+                    st.success("✅ Cash flow is balanced (no external funds needed)")
+                elif cash_flow < -1.0:
+                    st.warning(f"⚠️ You'll need to add {format_currency(abs(cash_flow))} to complete purchases")
+                else:
+                    st.info(f"ℹ️ You'll have {format_currency(cash_flow)} left over after rebalancing")
+                
+                st.markdown("---")
+                st.subheader("💳 Rebalancing Cost Breakdown")
+                st.markdown("Total cost to execute the rebalancing operations:")
+                
+                total_tax = result.total_tax_paid
+                commission_buy = result.total_commission_buy
+                commission_sell = result.total_commission_sell
+                total_commission = result.total_commission
+                total_cost = total_tax + total_commission
+                
+                col1, col2, col3 = st.columns([2, 1, 1])
+                with col1:
+                    st.metric(
+                        "💸 Total Cost to Rebalance",
+                        format_currency(total_cost),
+                        help="Sum of all taxes and transaction fees"
+                    )
+                
+                st.markdown("**Cost Components:**")
+                
+                breakdown_col1, breakdown_col2 = st.columns(2)
+                
+                with breakdown_col1:
+                    st.markdown("**Transaction Fees (Commissions)**")
+                    st.metric("Buy Commissions", format_currency(commission_buy))
+                    st.metric("Sell Commissions", format_currency(commission_sell))
+                    st.metric("Total Commissions", format_currency(total_commission))
+                
+                with breakdown_col2:
+                    st.markdown("**Capital Gains Tax**")
+                    st.metric("Total Tax Paid", format_currency(total_tax))
+                    
+                    if total_tax > 0.01:
+                        st.markdown("*Tax applies only to profitable sales*")
+                    else:
+                        st.markdown("*No capital gains tax (no profitable sales)*")
+                
+                st.info("""
+                **Note on costs:**
+                - **Commissions** are charged by your broker on each transaction
+                - **Capital gains tax** applies only when selling assets at a profit
+                - These costs are already reflected in the cash flow calculations above
+                - The total cost reduces the effective return of your rebalancing
+                """)
+                
+                st.markdown("---")
+                st.subheader("🎯 Post-Rebalancing Portfolio")
+                st.markdown("Your portfolio after executing the operations:")
+                
+                post_df = create_post_rebalancing_dataframe(result)
+                st.dataframe(post_df, use_container_width=True, hide_index=True)
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric("Total Value (After)", format_currency(result.total_value_after))
+                with col2:
+                    st.metric("Max Weight Deviation", format_percentage(result.max_deviation))
+                
+                if result.max_deviation < 0.01:
+                    st.success("✅ Excellent: All weights within 1% of target")
+                elif result.max_deviation < 0.05:
+                    st.info("ℹ️ Good: All weights within 5% of target")
+                else:
+                    st.warning("⚠️ Large deviations remain (consider adjusting parameters)")
+                
+                st.markdown("---")
+                st.info("""
+                **Note:** This is a calculation tool, not financial advice. Always verify calculations 
+                and consult a financial advisor if needed.
+                """)
             
-            if total_tax > 0.01:
-                st.markdown("*Tax applies only to profitable sales*")
-            else:
-                st.markdown("*No capital gains tax (no profitable sales)*")
-        
-        st.info("""
-        **Note on costs:**
-        - **Commissions** are charged by your broker on each transaction
-        - **Capital gains tax** applies only when selling assets at a profit
-        - These costs are already reflected in the cash flow calculations above
-        - The total cost reduces the effective return of your rebalancing
-        """)
-        
-        st.markdown("---")
-        st.subheader("🎯 Post-Rebalancing Portfolio")
-        st.markdown("Your portfolio after executing the operations:")
-        
-        post_df = create_post_rebalancing_dataframe(result)
-        st.dataframe(post_df, use_container_width=True, hide_index=True)
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric("Total Value (After)", format_currency(result.total_value_after))
-        with col2:
-            st.metric("Max Weight Deviation", format_percentage(result.max_deviation))
-        
-        if result.max_deviation < 0.01:
-            st.success("✅ Excellent: All weights within 1% of target")
-        elif result.max_deviation < 0.05:
-            st.info("ℹ️ Good: All weights within 5% of target")
-        else:
-            st.warning("⚠️ Large deviations remain (consider adjusting parameters)")
-        
-        st.markdown("---")
-        st.info("""
-        **Note:** This is a calculation tool, not financial advice. Always verify calculations 
-        and consult a financial advisor if needed.
-        """)
+            except Exception as e:
+                # Catch any unexpected errors gracefully
+                st.error("⚠️ An error occurred while displaying the results.")
+                st.warning("👉 The portfolio configuration may have changed. Please go to the **Target & Portfolio** tab to verify your settings, then run the analysis again.")
+                # Optionally show technical details in an expander
+                with st.expander("🔧 Technical Details (for debugging)"):
+                    st.code(str(e))
     
     else:
         st.info("👆 Click 'Run Rebalancing Analysis' above to calculate operations.")
@@ -812,16 +855,20 @@ with tab3:
     share calculations to integers.
     """)
     
-    st.checkbox(
+    # Use explicit value parameter to prevent reset during reruns
+    apply_rounding = st.checkbox(
         "Apply rounding to share quantities",
+        value=st.session_state.apply_rounding_checkbox,
         key="apply_rounding_checkbox",
         help="Round calculated share quantities to whole numbers"
     )
     
     if st.session_state.apply_rounding_checkbox:
+        # Use explicit value parameter to prevent reset during reruns
         st.radio(
             "Rounding method:",
             options=["FLOOR", "ROUND", "CEIL"],
+            index=["FLOOR", "ROUND", "CEIL"].index(st.session_state.rounding_policy_radio),
             key="rounding_policy_radio",
             help="FLOOR: Round down, ROUND: Round to nearest, CEIL: Round up",
             horizontal=True,
