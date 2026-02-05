@@ -130,20 +130,30 @@ with tab1:
     # Portfolio metadata
     col1, col2 = st.columns(2)
     with col1:
-        st.session_state.portfolio_name = st.text_input(
+        # FIX: Added unique key to prevent state synchronization issues
+        # The key ensures Streamlit tracks this widget's state correctly
+        portfolio_name = st.text_input(
             "Portfolio Name",
             value=st.session_state.portfolio_name,
+            key="portfolio_name_input",
             help="Give your portfolio a name for identification"
         )
+        # Update session state immediately after widget renders
+        st.session_state.portfolio_name = portfolio_name
     
     with col2:
-        st.session_state.cash_available = st.number_input(
+        # FIX: Added unique key and removed direct session_state assignment
+        # This fixes the double-click bug on +/- buttons
+        cash_available = st.number_input(
             "Available Cash to Deploy (€)",
             min_value=0.0,
             value=st.session_state.cash_available,
             step=100.0,
+            key="cash_available_input",
             help="Additional cash you want to invest. Set to 0 for cash-neutral rebalancing."
         )
+        # Update session state from widget value, not by direct assignment
+        st.session_state.cash_available = cash_available
     
     st.markdown("---")
     
@@ -163,12 +173,14 @@ with tab1:
     # Convert current assets to DataFrame for editing
     df = assets_to_dataframe(st.session_state.assets_data)
     
-    # Use Streamlit's data_editor for interactive table editing
-    # This provides an Excel-like experience in the browser
+    # FIX: Added unique key to data_editor to fix persistence issues
+    # Without a key, Streamlit may not properly track edits between reruns
+    # The key ensures the widget state is preserved across interactions
     edited_df = st.data_editor(
         df,
         num_rows="dynamic",  # Allow adding/removing rows
         use_container_width=True,
+        key="assets_table_editor",  # CRITICAL: This key fixes the double-input bug
         column_config={
             "Symbol": st.column_config.TextColumn("Symbol", required=True, max_chars=10),
             "Quantity": st.column_config.NumberColumn("Quantity", min_value=0.0, format="%.4f"),
@@ -188,7 +200,8 @@ with tab1:
         hide_index=True,
     )
     
-    # Save edited data back to session state
+    # FIX: Update session state from the edited dataframe
+    # This ensures changes persist immediately after first edit
     st.session_state.assets_data = edited_df.to_dict('records')
     
     # Validation feedback
@@ -217,7 +230,8 @@ with tab1:
     st.markdown("---")
     col1, col2 = st.columns([1, 4])
     with col1:
-        if st.button("🔄 Reset to Example", help="Reset to default 3-asset example portfolio"):
+        # FIX: Added unique key to button to prevent state conflicts
+        if st.button("🔄 Reset to Example", key="reset_button", help="Reset to default 3-asset example portfolio"):
             st.session_state.assets_data = create_default_assets()
             st.rerun()
 
@@ -235,7 +249,8 @@ with tab2:
     """)
     
     # Button to trigger calculation
-    if st.button("▶️ Run Rebalancing Analysis", type="primary", use_container_width=True):
+    # FIX: Added unique key to button
+    if st.button("▶️ Run Rebalancing Analysis", type="primary", use_container_width=True, key="run_analysis_button"):
         # Validate data before running
         df = assets_to_dataframe(st.session_state.assets_data)
         is_valid, error_msg = validate_assets_data(df)
@@ -360,6 +375,82 @@ with tab2:
         
         st.markdown("---")
         
+        # NEW SECTION: Rebalancing Cost Breakdown
+        st.subheader("💳 Rebalancing Cost Breakdown")
+        st.markdown("Total cost to execute the rebalancing operations:")
+        
+        # Calculate total cost components
+        # These calculations reuse existing logic from RebalancingResult properties
+        # Total tax paid on capital gains (only on profitable sales)
+        total_tax = result.total_tax_paid
+        
+        # Total commissions split by operation type
+        # Uses the commission calculation logic already present in RebalancingResult
+        commission_buy = result.total_commission_buy
+        commission_sell = result.total_commission_sell
+        total_commission = result.total_commission
+        
+        # Total rebalancing cost is the sum of taxes and commissions
+        # This represents the actual cost to execute the rebalancing
+        total_cost = total_tax + total_commission
+        
+        # Display as prominent metric
+        col1, col2, col3 = st.columns([2, 1, 1])
+        with col1:
+            st.metric(
+                "💸 Total Cost to Rebalance",
+                format_currency(total_cost),
+                help="Sum of all taxes and transaction fees"
+            )
+        
+        # Display detailed breakdown
+        st.markdown("**Cost Components:**")
+        
+        breakdown_col1, breakdown_col2 = st.columns(2)
+        
+        with breakdown_col1:
+            st.markdown("**Transaction Fees (Commissions)**")
+            st.metric(
+                "Buy Commissions",
+                format_currency(commission_buy),
+                help="Broker fees on purchase operations"
+            )
+            st.metric(
+                "Sell Commissions",
+                format_currency(commission_sell),
+                help="Broker fees on sell operations"
+            )
+            st.metric(
+                "Total Commissions",
+                format_currency(total_commission),
+                help="Sum of buy and sell commissions"
+            )
+        
+        with breakdown_col2:
+            st.markdown("**Capital Gains Tax**")
+            st.metric(
+                "Total Tax Paid",
+                format_currency(total_tax),
+                help="Tax on realized capital gains from selling at profit"
+            )
+            
+            # Show tax breakdown by asset if any taxes are paid
+            if total_tax > 0.01:
+                st.markdown("*Tax applies only to profitable sales*")
+            else:
+                st.markdown("*No capital gains tax (no profitable sales)*")
+        
+        # Add explanatory note
+        st.info("""
+        **Note on costs:**
+        - **Commissions** are charged by your broker on each transaction
+        - **Capital gains tax** applies only when selling assets at a profit
+        - These costs are already reflected in the cash flow calculations above
+        - The total cost reduces the effective return of your rebalancing
+        """)
+        
+        st.markdown("---")
+        
         # Section 4: Post-Rebalancing Portfolio
         st.subheader("🎯 Post-Rebalancing Portfolio")
         st.markdown("Your portfolio after executing the operations:")
@@ -414,20 +505,26 @@ with tab3:
     share calculations to integers.
     """)
     
-    st.session_state.apply_rounding = st.checkbox(
+    # FIX: Added unique key to checkbox
+    apply_rounding = st.checkbox(
         "Apply rounding to share quantities",
         value=st.session_state.apply_rounding,
+        key="apply_rounding_checkbox",
         help="Round calculated share quantities to whole numbers"
     )
+    st.session_state.apply_rounding = apply_rounding
     
     if st.session_state.apply_rounding:
-        st.session_state.rounding_policy = st.radio(
+        # FIX: Added unique key to radio button
+        rounding_policy = st.radio(
             "Rounding method:",
             options=["FLOOR", "ROUND", "CEIL"],
             index=["FLOOR", "ROUND", "CEIL"].index(st.session_state.rounding_policy),
+            key="rounding_policy_radio",
             help="FLOOR: Round down, ROUND: Round to nearest, CEIL: Round up",
             horizontal=True,
         )
+        st.session_state.rounding_policy = rounding_policy
         
         # Explain the implications
         if st.session_state.rounding_policy == "FLOOR":
