@@ -156,29 +156,30 @@ with tab1:
     """)
     
     # NOTE:
-    # Root cause of alternating table update bug:
-    # st.data_editor() ALWAYS returns a new DataFrame object on every rerun,
-    # even when no user interaction occurs. This created unnecessary object churn
-    # and made it appear that edits were alternating between saved/not saved.
-    #
-    # Debug revealed:
-    # - EVEN reruns: User edits detected, new DF returned with changes
-    # - ODD reruns: No user action, but widget still returned new DF copy
+    # Root cause of table flashing bug:
+    # Without a key parameter, st.data_editor() creates a NEW widget instance
+    # on every rerun, causing visible flashing as the table is destroyed and
+    # recreated with new DOM elements.
     #
     # Fix:
-    # Only update session state when DataFrame values actually change.
-    # Use .equals() to compare DataFrames and avoid storing unnecessary copies.
-    # This stabilizes state and eliminates the alternating perception.
+    # Add a key parameter to give the widget a stable identity across reruns.
+    # Streamlit recognizes it as the SAME widget and preserves its state,
+    # eliminating flashing and providing smooth updates.
+    #
+    # The key allows Streamlit's internal state management to work correctly.
+    # We read the edited data from the widget's return value and sync to
+    # assets_data for downstream processing.
     
     # Initialize DataFrame storage if first time
     if "assets_table_df" not in st.session_state:
         st.session_state.assets_table_df = assets_to_dataframe(st.session_state.assets_data)
     
-    # Render the data editor
+    # Render the data editor with a key for stable widget identity
     edited_df = st.data_editor(
         st.session_state.assets_table_df,
         num_rows="dynamic",
         use_container_width=True,
+        key="assets_table_editor",  # Stable identity prevents flashing
         column_config={
             "Symbol": st.column_config.TextColumn("Symbol", required=True, max_chars=10),
             "Quantity": st.column_config.NumberColumn("Quantity", min_value=0.0, format="%.4f"),
@@ -198,29 +199,27 @@ with tab1:
         hide_index=True,
     )
     
-    # Only update session state if DataFrame values actually changed
-    # This prevents unnecessary object replacement on every rerun
-    if not st.session_state.assets_table_df.equals(edited_df):
-        st.session_state.assets_table_df = edited_df
+    # Update session state with edited data
+    st.session_state.assets_table_df = edited_df
     
     # Sync to assets_data for downstream code
-    st.session_state.assets_data = st.session_state.assets_table_df.to_dict('records')
+    st.session_state.assets_data = edited_df.to_dict('records')
     
     # Validation feedback
     st.markdown("---")
-    is_valid, error_msg = validate_assets_data(st.session_state.assets_table_df)
+    is_valid, error_msg = validate_assets_data(edited_df)
     
     if is_valid:
         st.success("✅ Portfolio data is valid")
         
         total_value = sum(row["Quantity"] * row["Price"] for row in st.session_state.assets_data)
-        total_target = st.session_state.assets_table_df["Target Weight (%)"].sum()
+        total_target = edited_df["Target Weight (%)"].sum()
         
         col1, col2, col3 = st.columns(3)
         with col1:
             st.metric("Current Portfolio Value", format_currency(total_value))
         with col2:
-            st.metric("Number of Assets", len(st.session_state.assets_table_df))
+            st.metric("Number of Assets", len(edited_df))
         with col3:
             st.metric("Target Weights Sum", f"{total_target:.2f}%")
     else:
@@ -235,6 +234,9 @@ with tab1:
             st.session_state.assets_data = create_default_assets()
             if "assets_table_df" in st.session_state:
                 del st.session_state.assets_table_df
+            # Delete the widget's key to force full reinitialization
+            if "assets_table_editor" in st.session_state:
+                del st.session_state.assets_table_editor
             st.rerun()
 
 
