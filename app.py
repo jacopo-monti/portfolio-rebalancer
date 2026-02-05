@@ -147,26 +147,17 @@ with tab1:
     # Portfolio metadata
     col1, col2 = st.columns(2)
     with col1:
-        # FIX: Widget key IS the canonical state variable
+        # Widget key IS the canonical state variable
         # No 'value' parameter - let Streamlit manage the widget state natively
-        # The key 'portfolio_name_input' stores the current value in session_state
         st.text_input(
             "Portfolio Name",
             key="portfolio_name_input",
             help="Give your portfolio a name for identification"
         )
-        # No need to copy to another variable - just read from portfolio_name_input
     
     with col2:
-        # FIX: The +/- button bug root cause was:
-        # 1. value=st.session_state.cash_available forced widget to old value
-        # 2. Widget's key-based state (cash_available_input) was ignored
-        # 3. Copying back to cash_available created circular dependency
-        # 
-        # SOLUTION: Widget key IS the canonical state
-        # - No 'value' parameter (would override widget state)
-        # - Streamlit automatically persists cash_available_input across reruns
-        # - First click immediately updates and persists
+        # Widget key IS the canonical state
+        # No 'value' parameter to avoid overriding widget state
         st.number_input(
             "Available Cash to Deploy (€)",
             min_value=0.0,
@@ -174,7 +165,6 @@ with tab1:
             key="cash_available_input",
             help="Additional cash you want to invest. Set to 0 for cash-neutral rebalancing."
         )
-        # No state copying needed - cash_available_input IS the source of truth
     
     st.markdown("---")
     
@@ -191,14 +181,34 @@ with tab1:
     - **Commission fields**: Broker fees for buying/selling
     """)
     
-    # Convert current session state to DataFrame for editing
-    df = assets_to_dataframe(st.session_state.assets_data)
+    # NOTE:
+    # Root cause of Assets Table double-edit bug:
+    # - data_editor was passed df = assets_to_dataframe(st.session_state.assets_data) on every rerun
+    # - This first positional argument acts as a 'value' parameter
+    # - It OVERRIDES the widget's internal key-based state on each rerun
+    # - User edit (50.0 → 75.0) is stored in widget state momentarily
+    # - Rerun happens: df is recreated from OLD assets_data (still 50.0)
+    # - data_editor is reinitialized with OLD df, losing the edit
+    # - Result: first edit lost, second edit persists
+    #
+    # Fix implemented:
+    # - Initialize data_editor ONLY on first render (when widget key doesn't exist)
+    # - After first render, widget manages its own state via key parameter
+    # - Read edited data from st.session_state.assets_table_editor (widget's state)
+    # - Sync widget state to assets_data for downstream consumption
+    # - Widget state is the source of truth during editing
     
-    # Render the data editor with a stable key
-    # The key ensures this specific widget instance is tracked across reruns
+    # Initialize the data editor widget with data ONLY on first render
+    if "assets_table_editor" not in st.session_state:
+        # First render: initialize widget with current assets_data
+        initial_df = assets_to_dataframe(st.session_state.assets_data)
+        st.session_state.assets_table_editor = initial_df
+    
+    # Render the data editor - it will use its key-based state from session_state
+    # After first render, we're NOT passing new data, so widget state persists
     edited_df = st.data_editor(
-        df,
-        num_rows="dynamic",  # Allow adding/removing rows
+        st.session_state.assets_table_editor,  # Use widget's own state, not recreated df
+        num_rows="dynamic",
         use_container_width=True,
         key="assets_table_editor",
         column_config={
@@ -220,8 +230,8 @@ with tab1:
         hide_index=True,
     )
     
-    # Save the edited dataframe to session state
-    # This ensures that on the next rerun, the data_editor will be initialized with updated data
+    # Sync widget state to assets_data for downstream code that expects it there
+    # This is the bridge between the widget's state and the rest of the application
     st.session_state.assets_data = edited_df.to_dict('records')
     
     # Validation feedback
@@ -251,7 +261,9 @@ with tab1:
     col1, col2 = st.columns([1, 4])
     with col1:
         if st.button("🔄 Reset to Example", key="reset_button", help="Reset to default 3-asset example portfolio"):
+            # Reset both the source data and the widget state
             st.session_state.assets_data = create_default_assets()
+            st.session_state.assets_table_editor = assets_to_dataframe(st.session_state.assets_data)
             st.rerun()
 
 
@@ -281,14 +293,12 @@ with tab2:
                 assets = dataframe_to_assets(df)
                 portfolio = Portfolio(
                     assets=assets,
-                    # FIX: Read directly from widget key state (not from copied variable)
                     cash_available=st.session_state.cash_available_input,
                     name=st.session_state.portfolio_name_input,
                 )
                 
                 # Create the rebalancing engine with optional rounding policy
                 rounding_policy = None
-                # FIX: Read directly from widget key state
                 if st.session_state.apply_rounding_checkbox:
                     policy_map = {
                         "FLOOR": RoundingPolicy.FLOOR,
@@ -514,8 +524,7 @@ with tab3:
     share calculations to integers.
     """)
     
-    # FIX: Widget key IS the canonical state
-    # No 'value' parameter, no state copying
+    # Widget key IS the canonical state
     st.checkbox(
         "Apply rounding to share quantities",
         key="apply_rounding_checkbox",
