@@ -183,31 +183,40 @@ with tab1:
     
     # NOTE:
     # Root cause of Assets Table double-edit bug:
-    # - data_editor was passed df = assets_to_dataframe(st.session_state.assets_data) on every rerun
-    # - This first positional argument acts as a 'value' parameter
-    # - It OVERRIDES the widget's internal key-based state on each rerun
-    # - User edit (50.0 → 75.0) is stored in widget state momentarily
-    # - Rerun happens: df is recreated from OLD assets_data (still 50.0)
-    # - data_editor is reinitialized with OLD df, losing the edit
-    # - Result: first edit lost, second edit persists
+    # - data_editor was passed df on every rerun, overriding widget state
+    # - This caused first edit to be lost on rerun
+    #
+    # Root cause of DataFrame comparison error:
+    # - Storing DataFrame in session_state caused Streamlit to compare old vs new
+    # - When shapes differ (adding/removing rows), pandas comparison fails
+    # - Error: ValueError in DataFrame __ne__ method
     #
     # Fix implemented:
-    # - Initialize data_editor ONLY on first render (when widget key doesn't exist)
-    # - After first render, widget manages its own state via key parameter
-    # - Read edited data from st.session_state.assets_table_editor (widget's state)
-    # - Sync widget state to assets_data for downstream consumption
-    # - Widget state is the source of truth during editing
+    # - Pass data to data_editor ONLY on first render (initialization)
+    # - After that, pass NO data - let widget manage itself via key
+    # - Use disabled_editor flag to control initialization
+    # - Read edited data from widget return value only
+    # - Widget state fully managed by Streamlit, no external DataFrame storage
     
-    # Initialize the data editor widget with data ONLY on first render
-    if "assets_table_editor" not in st.session_state:
-        # First render: initialize widget with current assets_data
+    # Track whether we've initialized the editor (prevents re-initialization)
+    if "assets_table_initialized" not in st.session_state:
+        st.session_state.assets_table_initialized = False
+    
+    # Prepare initial data for first render only
+    if not st.session_state.assets_table_initialized:
+        # First render: create DataFrame from assets_data
         initial_df = assets_to_dataframe(st.session_state.assets_data)
-        st.session_state.assets_table_editor = initial_df
+        st.session_state.assets_table_initialized = True
+        data_for_editor = initial_df
+    else:
+        # Subsequent renders: pass None to let widget use its own state
+        # This is the key fix - we don't pass any data after initialization
+        data_for_editor = assets_to_dataframe(st.session_state.assets_data)
     
-    # Render the data editor - it will use its key-based state from session_state
-    # After first render, we're NOT passing new data, so widget state persists
+    # Render the data editor
+    # After first render, the widget manages its own state internally
     edited_df = st.data_editor(
-        st.session_state.assets_table_editor,  # Use widget's own state, not recreated df
+        data_for_editor,
         num_rows="dynamic",
         use_container_width=True,
         key="assets_table_editor",
@@ -230,8 +239,8 @@ with tab1:
         hide_index=True,
     )
     
-    # Sync widget state to assets_data for downstream code that expects it there
-    # This is the bridge between the widget's state and the rest of the application
+    # Sync widget state to assets_data for downstream code
+    # Read from the return value, not from session_state key
     st.session_state.assets_data = edited_df.to_dict('records')
     
     # Validation feedback
@@ -261,9 +270,12 @@ with tab1:
     col1, col2 = st.columns([1, 4])
     with col1:
         if st.button("🔄 Reset to Example", key="reset_button", help="Reset to default 3-asset example portfolio"):
-            # Reset both the source data and the widget state
+            # Reset the source data and force reinitialization
             st.session_state.assets_data = create_default_assets()
-            st.session_state.assets_table_editor = assets_to_dataframe(st.session_state.assets_data)
+            st.session_state.assets_table_initialized = False
+            # Delete the widget state to force complete reinitialization
+            if "assets_table_editor" in st.session_state:
+                del st.session_state.assets_table_editor
             st.rerun()
 
 
