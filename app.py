@@ -156,30 +156,31 @@ with tab1:
     """)
     
     # NOTE:
-    # Root cause of table flashing bug:
-    # Without a key parameter, st.data_editor() creates a NEW widget instance
-    # on every rerun, causing visible flashing as the table is destroyed and
-    # recreated with new DOM elements.
+    # Cause of Asset Table alternating reset bug:
+    # When st.data_editor receives the SAME DataFrame object as both input
+    # and output (circular assignment: df = st.data_editor(df)), Streamlit's
+    # state management becomes confused. On alternating reruns, the widget
+    # receives either stale or current data, causing edits to be lost.
+    #
+    # This is a known Streamlit issue:
+    # - https://github.com/streamlit/streamlit/issues/7354
+    # - https://github.com/streamlit/streamlit/issues/7749
     #
     # Fix:
-    # Add a key parameter to give the widget a stable identity across reruns.
-    # Streamlit recognizes it as the SAME widget and preserves its state,
-    # eliminating flashing and providing smooth updates.
-    #
-    # The key allows Streamlit's internal state management to work correctly.
-    # We read the edited data from the widget's return value and sync to
-    # assets_data for downstream processing.
+    # Always pass fresh DataFrame from assets_data as input, not the editor's
+    # previous output. This ensures unidirectional data flow:
+    #   assets_data → DataFrame → st.data_editor → edited_df → assets_data
+    # The key parameter provides stable widget identity across reruns.
     
-    # Initialize DataFrame storage if first time
-    if "assets_table_df" not in st.session_state:
-        st.session_state.assets_table_df = assets_to_dataframe(st.session_state.assets_data)
+    # Prepare input DataFrame from canonical source
+    input_df = assets_to_dataframe(st.session_state.assets_data)
     
-    # Render the data editor with a key for stable widget identity
+    # Render the data editor with stable key
     edited_df = st.data_editor(
-        st.session_state.assets_table_df,
+        input_df,
         num_rows="dynamic",
         use_container_width=True,
-        key="assets_table_editor",  # Stable identity prevents flashing
+        key="assets_table_editor",
         column_config={
             "Symbol": st.column_config.TextColumn("Symbol", required=True, max_chars=10),
             "Quantity": st.column_config.NumberColumn("Quantity", min_value=0.0, format="%.4f"),
@@ -199,10 +200,7 @@ with tab1:
         hide_index=True,
     )
     
-    # Update session state with edited data
-    st.session_state.assets_table_df = edited_df
-    
-    # Sync to assets_data for downstream code
+    # Sync edited data back to canonical source
     st.session_state.assets_data = edited_df.to_dict('records')
     
     # Validation feedback
@@ -232,8 +230,6 @@ with tab1:
     with col1:
         if st.button("🔄 Reset to Example", key="reset_button", help="Reset to default 3-asset example portfolio"):
             st.session_state.assets_data = create_default_assets()
-            if "assets_table_df" in st.session_state:
-                del st.session_state.assets_table_df
             # Delete the widget's key to force full reinitialization
             if "assets_table_editor" in st.session_state:
                 del st.session_state.assets_table_editor
