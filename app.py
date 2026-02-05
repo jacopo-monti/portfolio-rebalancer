@@ -181,24 +181,29 @@ with tab1:
     - **Commission fields**: Broker fees for buying/selling
     """)
     
-    # NOTE:
-    # Root cause of Assets Table double-edit bug:
-    # Original code passed assets_to_dataframe(st.session_state.assets_data) on EVERY rerun,
-    # which contained STALE data (not yet updated by widget edits).
-    # This overrode the widget's internal state containing the user's fresh edit.
-    #
-    # Fix implemented:
-    # - Use a separate variable (assets_table_df) to store the DataFrame between reruns
-    # - On FIRST render: Initialize from assets_data
-    # - On SUBSEQUENT renders: Pass the previous edited_df back to the widget
-    # - edited_df (return value) is always a DataFrame, so we use that
-    # - This creates proper feedback loop: edited_df → pass back → edited_df → repeat
-    # - Single source of truth: assets_table_df (the DataFrame, not dict)
+    # DEBUG: Track rerun count
+    if "debug_rerun_count" not in st.session_state:
+        st.session_state.debug_rerun_count = 0
+    st.session_state.debug_rerun_count += 1
+    
+    print(f"\n{'='*80}")
+    print(f"RERUN #{st.session_state.debug_rerun_count}")
+    print(f"{'='*80}")
     
     # Initialize DataFrame storage if first time
     if "assets_table_df" not in st.session_state:
         # FIRST RENDER ONLY: Initialize from assets_data
         st.session_state.assets_table_df = assets_to_dataframe(st.session_state.assets_data)
+        print("FIRST RENDER: Initialized assets_table_df from assets_data")
+    else:
+        print("SUBSEQUENT RENDER: assets_table_df already exists")
+    
+    # DEBUG: Log what we're about to pass to data_editor
+    print(f"\nBEFORE data_editor():")
+    print(f"assets_table_df type: {type(st.session_state.assets_table_df)}")
+    print(f"assets_table_df shape: {st.session_state.assets_table_df.shape}")
+    print(f"assets_table_df content:")
+    print(st.session_state.assets_table_df[['Symbol', 'Target Weight (%)']])
     
     # Render the data editor
     # Pass the stored DataFrame (either initial or previous edited version)
@@ -226,11 +231,33 @@ with tab1:
         hide_index=True,
     )
     
+    # DEBUG: Log what we got back from data_editor
+    print(f"\nAFTER data_editor():")
+    print(f"edited_df type: {type(edited_df)}")
+    print(f"edited_df shape: {edited_df.shape}")
+    print(f"edited_df content:")
+    print(edited_df[['Symbol', 'Target Weight (%)']])
+    
+    # DEBUG: Check if anything changed
+    if st.session_state.assets_table_df.equals(edited_df):
+        print("\n✓ DataFrames are IDENTICAL (no edit detected)")
+    else:
+        print("\n✗ DataFrames DIFFER (edit detected!)")
+        # Show the diff
+        for col in ['Symbol', 'Target Weight (%)']:
+            if not st.session_state.assets_table_df[col].equals(edited_df[col]):
+                print(f"  Column '{col}' changed:")
+                print(f"    BEFORE: {st.session_state.assets_table_df[col].tolist()}")
+                print(f"    AFTER:  {edited_df[col].tolist()}")
+    
     # Store edited DataFrame for next rerun (feedback loop)
+    print(f"\nSTORING edited_df as assets_table_df for next rerun")
     st.session_state.assets_table_df = edited_df
     
     # Sync to assets_data for downstream code (backward compatibility)
     st.session_state.assets_data = edited_df.to_dict('records')
+    
+    print(f"\n{'='*80}\n")
     
     # Validation feedback
     st.markdown("---")
