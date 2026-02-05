@@ -51,12 +51,22 @@ st.set_page_config(
 # ============================================================================
 # SESSION STATE INITIALIZATION
 # ============================================================================
-# Streamlit's session state allows us to persist data between reruns
-# This is our "in-memory database" for the demo
+# Streamlit's session state allows us to persist data between reruns.
+# This is our "in-memory database" for the demo.
 #
-# CRITICAL: Each state variable is initialized ONCE using a guard condition.
-# This prevents re-initialization on every rerun, which was the root cause
-# of the state rollback bug.
+# NOTE:
+# Root cause of previous double-input bug:
+# - Widgets were initialized with value=st.session_state.var
+# - Widget stored state in st.session_state.widget_key  
+# - Code then copied widget_key back to var after rendering
+# - On rerun, 'value' parameter OVERRODE widget's key-based state
+# - This caused widget to revert to old value, losing first interaction
+#
+# Fix implemented:
+# - Widget keys ARE the canonical state (no separate state variables)
+# - No 'value' parameter used (let Streamlit manage widget state natively)
+# - All code reads directly from widget key state
+# - Single source of truth, no state copying
 
 if "assets_data" not in st.session_state:
     # Initialize with default example portfolio
@@ -66,17 +76,20 @@ if "rebalancing_result" not in st.session_state:
     # Store the result of the last rebalancing calculation
     st.session_state.rebalancing_result = None
 
-if "portfolio_name" not in st.session_state:
-    st.session_state.portfolio_name = "My Portfolio"
+# Widget keys will be the canonical state:
+# - portfolio_name_input (instead of portfolio_name)
+# - cash_available_input (instead of cash_available)
+if "portfolio_name_input" not in st.session_state:
+    st.session_state.portfolio_name_input = "My Portfolio"
 
-if "cash_available" not in st.session_state:
-    st.session_state.cash_available = 0.0
+if "cash_available_input" not in st.session_state:
+    st.session_state.cash_available_input = 0.0
 
-if "apply_rounding" not in st.session_state:
-    st.session_state.apply_rounding = False
+if "apply_rounding_checkbox" not in st.session_state:
+    st.session_state.apply_rounding_checkbox = False
 
-if "rounding_policy" not in st.session_state:
-    st.session_state.rounding_policy = "ROUND"
+if "rounding_policy_radio" not in st.session_state:
+    st.session_state.rounding_policy_radio = "ROUND"
 
 
 # ============================================================================
@@ -134,38 +147,34 @@ with tab1:
     # Portfolio metadata
     col1, col2 = st.columns(2)
     with col1:
-        # FIX: Widget with unique key stores its value directly in session_state['portfolio_name_input']
-        # We no longer read from and write to the same session_state variable, breaking the circular dependency
+        # FIX: Widget key IS the canonical state variable
+        # No 'value' parameter - let Streamlit manage the widget state natively
+        # The key 'portfolio_name_input' stores the current value in session_state
         st.text_input(
             "Portfolio Name",
-            value=st.session_state.portfolio_name,
             key="portfolio_name_input",
             help="Give your portfolio a name for identification"
         )
-        # Update the canonical session_state variable from the widget's state
-        # This happens AFTER the widget renders, so user input is preserved
-        st.session_state.portfolio_name = st.session_state.portfolio_name_input
+        # No need to copy to another variable - just read from portfolio_name_input
     
     with col2:
-        # FIX: Increment/decrement buttons were causing double-click behavior because:
-        # 1. Widget reads from session_state.cash_available
-        # 2. Widget updates its internal state
-        # 3. We immediately overwrote session_state.cash_available with the OLD value
-        # 4. Next rerun used the OLD value, causing rollback
-        #
-        # SOLUTION: Let Streamlit manage the widget state through the key parameter.
-        # The widget automatically stores its value in session_state['cash_available_input'].
-        # We sync this to our canonical variable AFTER rendering.
+        # FIX: The +/- button bug root cause was:
+        # 1. value=st.session_state.cash_available forced widget to old value
+        # 2. Widget's key-based state (cash_available_input) was ignored
+        # 3. Copying back to cash_available created circular dependency
+        # 
+        # SOLUTION: Widget key IS the canonical state
+        # - No 'value' parameter (would override widget state)
+        # - Streamlit automatically persists cash_available_input across reruns
+        # - First click immediately updates and persists
         st.number_input(
             "Available Cash to Deploy (€)",
             min_value=0.0,
-            value=st.session_state.cash_available,
             step=100.0,
             key="cash_available_input",
             help="Additional cash you want to invest. Set to 0 for cash-neutral rebalancing."
         )
-        # Sync from widget state to canonical state AFTER rendering
-        st.session_state.cash_available = st.session_state.cash_available_input
+        # No state copying needed - cash_available_input IS the source of truth
     
     st.markdown("---")
     
@@ -181,19 +190,6 @@ with tab1:
     - **Target Weight (%)**: Desired portfolio allocation (must sum to 100%)
     - **Commission fields**: Broker fees for buying/selling
     """)
-    
-    # FIX: The data_editor bug was caused by this sequence:
-    # 1. Read st.session_state.assets_data and create DataFrame
-    # 2. Pass DataFrame to data_editor
-    # 3. User edits cell
-    # 4. Streamlit reruns
-    # 5. We read st.session_state.assets_data AGAIN (still has old value)
-    # 6. Initialize data_editor with old value
-    # 7. User edit is lost
-    #
-    # SOLUTION: The data_editor return value contains the user's edits.
-    # We must save this IMMEDIATELY to session_state, and on the next rerun,
-    # the data_editor will be initialized with the UPDATED data.
     
     # Convert current session state to DataFrame for editing
     df = assets_to_dataframe(st.session_state.assets_data)
@@ -224,10 +220,8 @@ with tab1:
         hide_index=True,
     )
     
-    # CRITICAL FIX: Save the edited dataframe to session state IMMEDIATELY
-    # This ensures that on the next rerun (triggered by the edit), the data_editor
-    # will be initialized with the UPDATED data, not the stale data.
-    # This is the single source of truth for asset data.
+    # Save the edited dataframe to session state
+    # This ensures that on the next rerun, the data_editor will be initialized with updated data
     st.session_state.assets_data = edited_df.to_dict('records')
     
     # Validation feedback
@@ -258,8 +252,6 @@ with tab1:
     with col1:
         if st.button("🔄 Reset to Example", key="reset_button", help="Reset to default 3-asset example portfolio"):
             st.session_state.assets_data = create_default_assets()
-            # Explicit rerun is necessary here because we're resetting data
-            # that needs to be reflected in the data_editor on the next render
             st.rerun()
 
 
@@ -286,29 +278,28 @@ with tab2:
         else:
             try:
                 # Convert UI data to domain models
-                # This is where we map from the UI representation (DataFrame)
-                # to the core domain models (Asset, Portfolio)
                 assets = dataframe_to_assets(df)
                 portfolio = Portfolio(
                     assets=assets,
-                    cash_available=st.session_state.cash_available,
-                    name=st.session_state.portfolio_name,
+                    # FIX: Read directly from widget key state (not from copied variable)
+                    cash_available=st.session_state.cash_available_input,
+                    name=st.session_state.portfolio_name_input,
                 )
                 
                 # Create the rebalancing engine with optional rounding policy
                 rounding_policy = None
-                if st.session_state.apply_rounding:
+                # FIX: Read directly from widget key state
+                if st.session_state.apply_rounding_checkbox:
                     policy_map = {
                         "FLOOR": RoundingPolicy.FLOOR,
                         "ROUND": RoundingPolicy.ROUND,
                         "CEIL": RoundingPolicy.CEIL,
                     }
-                    rounding_policy = policy_map[st.session_state.rounding_policy]
+                    rounding_policy = policy_map[st.session_state.rounding_policy_radio]
                 
                 engine = RebalancingEngine(rounding_policy=rounding_policy)
                 
                 # Execute the core rebalancing logic
-                # This is the single source of truth - the UI is just a wrapper
                 with st.spinner("Calculating optimal rebalancing operations..."):
                     result = engine.rebalance(portfolio)
                 
@@ -335,8 +326,8 @@ with tab2:
         assets = dataframe_to_assets(df)
         portfolio = Portfolio(
             assets=assets,
-            cash_available=st.session_state.cash_available,
-            name=st.session_state.portfolio_name,
+            cash_available=st.session_state.cash_available_input,
+            name=st.session_state.portfolio_name_input,
         )
         
         # Compute current state (mimics Step 1 of the algorithm)
@@ -350,8 +341,8 @@ with tab2:
         with col1:
             st.metric("Total Value (Before)", format_currency(result.total_value_before))
         with col2:
-            if st.session_state.cash_available > 0:
-                st.metric("Available Cash", format_currency(st.session_state.cash_available))
+            if st.session_state.cash_available_input > 0:
+                st.metric("Available Cash", format_currency(st.session_state.cash_available_input))
         
         st.markdown("---")
         
@@ -401,23 +392,15 @@ with tab2:
         
         st.markdown("---")
         
-        # NEW SECTION: Rebalancing Cost Breakdown
+        # Section: Rebalancing Cost Breakdown
         st.subheader("💳 Rebalancing Cost Breakdown")
         st.markdown("Total cost to execute the rebalancing operations:")
         
         # Calculate total cost components
-        # These calculations reuse existing logic from RebalancingResult properties
-        # Total tax paid on capital gains (only on profitable sales)
         total_tax = result.total_tax_paid
-        
-        # Total commissions split by operation type
-        # Uses the commission calculation logic already present in RebalancingResult
         commission_buy = result.total_commission_buy
         commission_sell = result.total_commission_sell
         total_commission = result.total_commission
-        
-        # Total rebalancing cost is the sum of taxes and commissions
-        # This represents the actual cost to execute the rebalancing
         total_cost = total_tax + total_commission
         
         # Display as prominent metric
@@ -531,31 +514,27 @@ with tab3:
     share calculations to integers.
     """)
     
-    # FIX: Widget with unique key manages its own state
-    # We read from the widget's state after rendering
+    # FIX: Widget key IS the canonical state
+    # No 'value' parameter, no state copying
     st.checkbox(
         "Apply rounding to share quantities",
-        value=st.session_state.apply_rounding,
         key="apply_rounding_checkbox",
         help="Round calculated share quantities to whole numbers"
     )
-    st.session_state.apply_rounding = st.session_state.apply_rounding_checkbox
     
-    if st.session_state.apply_rounding:
+    if st.session_state.apply_rounding_checkbox:
         st.radio(
             "Rounding method:",
             options=["FLOOR", "ROUND", "CEIL"],
-            index=["FLOOR", "ROUND", "CEIL"].index(st.session_state.rounding_policy),
             key="rounding_policy_radio",
             help="FLOOR: Round down, ROUND: Round to nearest, CEIL: Round up",
             horizontal=True,
         )
-        st.session_state.rounding_policy = st.session_state.rounding_policy_radio
         
         # Explain the implications
-        if st.session_state.rounding_policy == "FLOOR":
+        if st.session_state.rounding_policy_radio == "FLOOR":
             st.info("🔽 **FLOOR**: Always rounds down. Conservative, may leave cash unallocated.")
-        elif st.session_state.rounding_policy == "ROUND":
+        elif st.session_state.rounding_policy_radio == "ROUND":
             st.info("🎯 **ROUND**: Rounds to nearest integer. Balanced approach (recommended).")
         else:
             st.info("🔼 **CEIL**: Always rounds up. May require slightly more cash.")
