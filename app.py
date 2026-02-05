@@ -53,6 +53,10 @@ st.set_page_config(
 # ============================================================================
 # Streamlit's session state allows us to persist data between reruns
 # This is our "in-memory database" for the demo
+#
+# CRITICAL: Each state variable is initialized ONCE using a guard condition.
+# This prevents re-initialization on every rerun, which was the root cause
+# of the state rollback bug.
 
 if "assets_data" not in st.session_state:
     # Initialize with default example portfolio
@@ -130,21 +134,29 @@ with tab1:
     # Portfolio metadata
     col1, col2 = st.columns(2)
     with col1:
-        # FIX: Added unique key to prevent state synchronization issues
-        # The key ensures Streamlit tracks this widget's state correctly
-        portfolio_name = st.text_input(
+        # FIX: Widget with unique key stores its value directly in session_state['portfolio_name_input']
+        # We no longer read from and write to the same session_state variable, breaking the circular dependency
+        st.text_input(
             "Portfolio Name",
             value=st.session_state.portfolio_name,
             key="portfolio_name_input",
             help="Give your portfolio a name for identification"
         )
-        # Update session state immediately after widget renders
-        st.session_state.portfolio_name = portfolio_name
+        # Update the canonical session_state variable from the widget's state
+        # This happens AFTER the widget renders, so user input is preserved
+        st.session_state.portfolio_name = st.session_state.portfolio_name_input
     
     with col2:
-        # FIX: Added unique key and removed direct session_state assignment
-        # This fixes the double-click bug on +/- buttons
-        cash_available = st.number_input(
+        # FIX: Increment/decrement buttons were causing double-click behavior because:
+        # 1. Widget reads from session_state.cash_available
+        # 2. Widget updates its internal state
+        # 3. We immediately overwrote session_state.cash_available with the OLD value
+        # 4. Next rerun used the OLD value, causing rollback
+        #
+        # SOLUTION: Let Streamlit manage the widget state through the key parameter.
+        # The widget automatically stores its value in session_state['cash_available_input'].
+        # We sync this to our canonical variable AFTER rendering.
+        st.number_input(
             "Available Cash to Deploy (€)",
             min_value=0.0,
             value=st.session_state.cash_available,
@@ -152,8 +164,8 @@ with tab1:
             key="cash_available_input",
             help="Additional cash you want to invest. Set to 0 for cash-neutral rebalancing."
         )
-        # Update session state from widget value, not by direct assignment
-        st.session_state.cash_available = cash_available
+        # Sync from widget state to canonical state AFTER rendering
+        st.session_state.cash_available = st.session_state.cash_available_input
     
     st.markdown("---")
     
@@ -170,22 +182,29 @@ with tab1:
     - **Commission fields**: Broker fees for buying/selling
     """)
     
-    # Convert current assets to DataFrame for editing
+    # FIX: The data_editor bug was caused by this sequence:
+    # 1. Read st.session_state.assets_data and create DataFrame
+    # 2. Pass DataFrame to data_editor
+    # 3. User edits cell
+    # 4. Streamlit reruns
+    # 5. We read st.session_state.assets_data AGAIN (still has old value)
+    # 6. Initialize data_editor with old value
+    # 7. User edit is lost
+    #
+    # SOLUTION: The data_editor return value contains the user's edits.
+    # We must save this IMMEDIATELY to session_state, and on the next rerun,
+    # the data_editor will be initialized with the UPDATED data.
+    
+    # Convert current session state to DataFrame for editing
     df = assets_to_dataframe(st.session_state.assets_data)
     
-    # CRITICAL FIX: The issue is that data_editor returns the edited dataframe,
-    # but we're immediately converting it to dict and saving to session_state,
-    # which gets re-read on the next rerun. This creates a race condition.
-    # 
-    # The solution is to NOT use the return value for immediate updates.
-    # Instead, we read from session_state['assets_table_editor'] which Streamlit
-    # automatically updates when the user edits the table.
-    
+    # Render the data editor with a stable key
+    # The key ensures this specific widget instance is tracked across reruns
     edited_df = st.data_editor(
         df,
         num_rows="dynamic",  # Allow adding/removing rows
         use_container_width=True,
-        key="assets_table_editor",  # This key creates session_state['assets_table_editor']
+        key="assets_table_editor",
         column_config={
             "Symbol": st.column_config.TextColumn("Symbol", required=True, max_chars=10),
             "Quantity": st.column_config.NumberColumn("Quantity", min_value=0.0, format="%.4f"),
@@ -205,11 +224,11 @@ with tab1:
         hide_index=True,
     )
     
-    # CRITICAL FIX: Save the edited dataframe to session state
-    # This must happen AFTER the data_editor is rendered
-    # The edited_df contains the user's changes
-    if edited_df is not None:
-        st.session_state.assets_data = edited_df.to_dict('records')
+    # CRITICAL FIX: Save the edited dataframe to session state IMMEDIATELY
+    # This ensures that on the next rerun (triggered by the edit), the data_editor
+    # will be initialized with the UPDATED data, not the stale data.
+    # This is the single source of truth for asset data.
+    st.session_state.assets_data = edited_df.to_dict('records')
     
     # Validation feedback
     st.markdown("---")
@@ -237,9 +256,10 @@ with tab1:
     st.markdown("---")
     col1, col2 = st.columns([1, 4])
     with col1:
-        # FIX: Added unique key to button to prevent state conflicts
         if st.button("🔄 Reset to Example", key="reset_button", help="Reset to default 3-asset example portfolio"):
             st.session_state.assets_data = create_default_assets()
+            # Explicit rerun is necessary here because we're resetting data
+            # that needs to be reflected in the data_editor on the next render
             st.rerun()
 
 
@@ -256,7 +276,6 @@ with tab2:
     """)
     
     # Button to trigger calculation
-    # FIX: Added unique key to button
     if st.button("▶️ Run Rebalancing Analysis", type="primary", use_container_width=True, key="run_analysis_button"):
         # Validate data before running
         df = assets_to_dataframe(st.session_state.assets_data)
@@ -512,18 +531,18 @@ with tab3:
     share calculations to integers.
     """)
     
-    # FIX: Added unique key to checkbox
-    apply_rounding = st.checkbox(
+    # FIX: Widget with unique key manages its own state
+    # We read from the widget's state after rendering
+    st.checkbox(
         "Apply rounding to share quantities",
         value=st.session_state.apply_rounding,
         key="apply_rounding_checkbox",
         help="Round calculated share quantities to whole numbers"
     )
-    st.session_state.apply_rounding = apply_rounding
+    st.session_state.apply_rounding = st.session_state.apply_rounding_checkbox
     
     if st.session_state.apply_rounding:
-        # FIX: Added unique key to radio button
-        rounding_policy = st.radio(
+        st.radio(
             "Rounding method:",
             options=["FLOOR", "ROUND", "CEIL"],
             index=["FLOOR", "ROUND", "CEIL"].index(st.session_state.rounding_policy),
@@ -531,7 +550,7 @@ with tab3:
             help="FLOOR: Round down, ROUND: Round to nearest, CEIL: Round up",
             horizontal=True,
         )
-        st.session_state.rounding_policy = rounding_policy
+        st.session_state.rounding_policy = st.session_state.rounding_policy_radio
         
         # Explain the implications
         if st.session_state.rounding_policy == "FLOOR":
