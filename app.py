@@ -181,53 +181,47 @@ with tab1:
     - **Commission fields**: Broker fees for buying/selling
     """)
     
-    # DEBUG: investigation - Track rerun count
-    if "debug_rerun_count" not in st.session_state:
-        st.session_state.debug_rerun_count = 0
-    st.session_state.debug_rerun_count += 1
+    # NOTE:
+    # Root cause of Assets Table double-edit bug (confirmed via debug instrumentation):
+    # Line 227 (old code): data_for_editor = assets_to_dataframe(st.session_state.assets_data)
+    # This line executed on EVERY rerun after initialization, creating DataFrame from
+    # OLD/STALE assets_data (which hadn't been updated yet by the widget).
+    # This stale DataFrame was then passed to st.data_editor(), OVERRIDING the widget's
+    # internal state that contained the user's edit.
+    #
+    # Flow of the bug:
+    # 1. User edits cell (15.0 → 16.0)
+    # 2. Widget stores 16.0 in its internal state
+    # 3. Streamlit reruns
+    # 4. Line 227: Creates DataFrame from assets_data (still 15.0 - not updated yet)
+    # 5. st.data_editor() receives stale DataFrame (15.0) as first parameter
+    # 6. Widget's internal state (16.0) OVERRIDDEN by parameter (15.0)
+    # 7. Widget returns 15.0 to edited_df
+    # 8. assets_data = edited_df.to_dict() saves 15.0
+    # 9. Result: First edit lost, second edit persists
+    #
+    # Fix implemented:
+    # - After initialization, do NOT pass any DataFrame to st.data_editor()
+    # - Only initialize widget on first render with data from assets_data
+    # - After that, widget manages its own state via key parameter
+    # - Widget state is the single source of truth during editing
+    # - Read edited data from widget return value and sync to assets_data
     
-    # DEBUG: investigation - Log session state before widget rendering
-    print(f"\n=== RERUN #{st.session_state.debug_rerun_count} - BEFORE DATA_EDITOR ===")
-    print(f"assets_table_initialized: {st.session_state.get('assets_table_initialized', 'NOT SET')}")
-    print(f"assets_data (from session_state): {st.session_state.assets_data}")
-    if "assets_table_editor" in st.session_state:
-        print(f"assets_table_editor exists in session_state")
-        print(f"assets_table_editor type: {type(st.session_state.assets_table_editor)}")
-        if isinstance(st.session_state.assets_table_editor, pd.DataFrame):
-            print(f"assets_table_editor DataFrame:\n{st.session_state.assets_table_editor}")
-    else:
-        print("assets_table_editor NOT in session_state")
-    
-    # Track whether we've initialized the editor (prevents re-initialization)
-    if "assets_table_initialized" not in st.session_state:
-        st.session_state.assets_table_initialized = False
-    
-    # Prepare initial data for first render only
-    if not st.session_state.assets_table_initialized:
-        # First render: create DataFrame from assets_data
+    # Check if this is the first render (widget doesn't exist yet)
+    if "assets_table_editor" not in st.session_state:
+        # FIRST RENDER ONLY: Initialize widget with data from assets_data
         initial_df = assets_to_dataframe(st.session_state.assets_data)
-        st.session_state.assets_table_initialized = True
-        data_for_editor = initial_df
-        # DEBUG: investigation
-        print(f"FIRST RENDER: Created initial_df from assets_data")
-        print(f"data_for_editor (initial_df):\n{data_for_editor}")
     else:
-        # Subsequent renders: THIS IS THE BUG - we're passing stale data
-        # The comment says "pass None" but we're creating df from assets_data!
-        data_for_editor = assets_to_dataframe(st.session_state.assets_data)
-        # DEBUG: investigation
-        print(f"SUBSEQUENT RENDER: Created data_for_editor from assets_data (THIS IS THE BUG!)")
-        print(f"data_for_editor (from assets_data):\n{data_for_editor}")
-        print(f"This DataFrame will OVERRIDE any edits made to the widget!")
-    
-    # DEBUG: investigation - Log what we're passing to data_editor
-    print(f"\nPassing to data_editor:")
-    print(f"data_for_editor:\n{data_for_editor}")
+        # SUBSEQUENT RENDERS: Pass None to avoid overriding widget's internal state
+        # The widget will use its own state stored under the key "assets_table_editor"
+        initial_df = None
     
     # Render the data editor
-    # After first render, the widget manages its own state internally
+    # - On first render: receives initial_df (DataFrame) for initialization
+    # - On subsequent renders: receives None, widget uses its own key-based state
+    # - Widget state persists across reruns without external override
     edited_df = st.data_editor(
-        data_for_editor,  # DEBUG: THIS IS OVERRIDING WIDGET STATE ON EVERY RERUN!
+        initial_df,  # None after first render - widget manages its own state
         num_rows="dynamic",
         use_container_width=True,
         key="assets_table_editor",
@@ -250,26 +244,9 @@ with tab1:
         hide_index=True,
     )
     
-    # DEBUG: investigation - Log widget return value
-    print(f"\n=== AFTER DATA_EDITOR ===")
-    print(f"edited_df (widget return value):\n{edited_df}")
-    
     # Sync widget state to assets_data for downstream code
-    # Read from the return value, not from session_state key
-    # DEBUG: investigation - This line OVERWRITES assets_data with widget output
-    print(f"\nBefore sync: assets_data = {st.session_state.assets_data}")
+    # edited_df contains the current widget state (including any user edits)
     st.session_state.assets_data = edited_df.to_dict('records')
-    print(f"After sync: assets_data = {st.session_state.assets_data}")
-    print(f"\nROOT CAUSE IDENTIFIED:")
-    print(f"1. User edits cell (e.g., 50.0 -> 75.0)")
-    print(f"2. Streamlit reruns")
-    print(f"3. Line 227: data_for_editor = assets_to_dataframe(st.session_state.assets_data)")
-    print(f"   -> Creates DataFrame from OLD assets_data (still 50.0)")
-    print(f"4. Line 233: st.data_editor(data_for_editor, ...)")
-    print(f"   -> Passes OLD data to widget, OVERRIDING widget's internal state (75.0)")
-    print(f"5. Line 263: st.session_state.assets_data = edited_df.to_dict('records')")
-    print(f"   -> Saves edited_df, but edit was already lost in step 4")
-    print(f"6. Result: First edit lost, second edit persists\n")
     
     # Validation feedback
     st.markdown("---")
@@ -298,10 +275,9 @@ with tab1:
     col1, col2 = st.columns([1, 4])
     with col1:
         if st.button("🔄 Reset to Example", key="reset_button", help="Reset to default 3-asset example portfolio"):
-            # Reset the source data and force reinitialization
+            # Reset the source data and force widget reinitialization
             st.session_state.assets_data = create_default_assets()
-            st.session_state.assets_table_initialized = False
-            # Delete the widget state to force complete reinitialization
+            # Delete the widget state to force complete reinitialization on next render
             if "assets_table_editor" in st.session_state:
                 del st.session_state.assets_table_editor
             st.rerun()
