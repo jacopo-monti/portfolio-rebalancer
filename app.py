@@ -184,33 +184,26 @@ with tab1:
     # NOTE:
     # Root cause of Assets Table double-edit bug:
     # Original code passed assets_to_dataframe(st.session_state.assets_data) on EVERY rerun,
-    # which contained STALE data that hadn't been updated by the widget yet.
+    # which contained STALE data (not yet updated by widget edits).
     # This overrode the widget's internal state containing the user's fresh edit.
     #
     # Fix implemented:
+    # - Use a separate variable (assets_table_df) to store the DataFrame between reruns
     # - On FIRST render: Initialize from assets_data
-    # - On SUBSEQUENT renders: Read from widget's own session_state and pass it back
-    # - Widget state (st.session_state.assets_table_editor) is a DataFrame
-    # - This creates proper feedback loop: widget edits itself, we pass its state back
-    # - Single source of truth: st.session_state.assets_table_editor (after init)
+    # - On SUBSEQUENT renders: Pass the previous edited_df back to the widget
+    # - edited_df (return value) is always a DataFrame, so we use that
+    # - This creates proper feedback loop: edited_df → pass back → edited_df → repeat
+    # - Single source of truth: assets_table_df (the DataFrame, not dict)
     
-    # Check if this is the first render (widget doesn't exist yet)
-    if "assets_table_editor" not in st.session_state:
-        # FIRST RENDER ONLY: Initialize widget with data from assets_data
-        initial_df = assets_to_dataframe(st.session_state.assets_data)
-    else:
-        # SUBSEQUENT RENDERS: Read from widget's own state and pass it back
-        # The widget stores its edited DataFrame in st.session_state[key]
-        # We pass that DataFrame back to the widget, creating a feedback loop
-        # This preserves edits because we're not overriding with stale external data
-        initial_df = st.session_state.assets_table_editor
+    # Initialize DataFrame storage if first time
+    if "assets_table_df" not in st.session_state:
+        # FIRST RENDER ONLY: Initialize from assets_data
+        st.session_state.assets_table_df = assets_to_dataframe(st.session_state.assets_data)
     
     # Render the data editor
-    # - On first render: receives initial_df from assets_data
-    # - On subsequent renders: receives initial_df from widget's own session state
-    # - Widget state persists because we pass it back to itself
+    # Pass the stored DataFrame (either initial or previous edited version)
     edited_df = st.data_editor(
-        initial_df,  # Widget's own state after first render
+        st.session_state.assets_table_df,  # Always a DataFrame
         num_rows="dynamic",
         use_container_width=True,
         key="assets_table_editor",
@@ -233,8 +226,10 @@ with tab1:
         hide_index=True,
     )
     
-    # Sync widget state to assets_data for downstream code
-    # edited_df contains the current widget state (including any user edits)
+    # Store edited DataFrame for next rerun (feedback loop)
+    st.session_state.assets_table_df = edited_df
+    
+    # Sync to assets_data for downstream code (backward compatibility)
     st.session_state.assets_data = edited_df.to_dict('records')
     
     # Validation feedback
@@ -266,7 +261,9 @@ with tab1:
         if st.button("🔄 Reset to Example", key="reset_button", help="Reset to default 3-asset example portfolio"):
             # Reset the source data and force widget reinitialization
             st.session_state.assets_data = create_default_assets()
-            # Delete the widget state to force complete reinitialization on next render
+            # Delete the DataFrame storage to force complete reinitialization
+            if "assets_table_df" in st.session_state:
+                del st.session_state.assets_table_df
             if "assets_table_editor" in st.session_state:
                 del st.session_state.assets_table_editor
             st.rerun()
