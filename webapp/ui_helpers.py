@@ -301,12 +301,15 @@ def create_post_rebalancing_dataframe(result) -> pd.DataFrame:
         new_weight = new_value / result.total_value_after
         deviation = new_weight - asset.target_weight
         
+        # Apply color coding to deviation (same as Current Portfolio State)
+        deviation_html = format_deviation_with_color(deviation)
+        
         data.append({
             "Symbol": asset.symbol,
             "New Quantity": f"{new_quantity:.2f}",
             "New Value": format_currency(new_value),
             "New Weight": format_percentage(new_weight),
             "Target Weight": format_percentage(asset.target_weight),
-            "Deviation": format_percentage(deviation),
+            "Deviation": deviation_html,
         })
     return pd.DataFrame(data)
