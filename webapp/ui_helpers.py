@@ -189,6 +189,37 @@ def format_percentage(value: float, decimal_places: int = 2) -> str:
     return f"{value * 100:.{decimal_places}f}%"
 
 
+def format_deviation_with_color(deviation: float) -> str:
+    """Format deviation with color coding based on magnitude.
+    
+    Args:
+        deviation: Deviation value in decimal form (e.g., 0.025 for 2.5%)
+        
+    Returns:
+        HTML-formatted string with color
+    """
+    # Convert to percentage
+    deviation_pct = deviation * 100
+    abs_dev = abs(deviation_pct)
+    
+    # Determine color based on thresholds
+    if abs_dev < 1.0:
+        # Small deviation: green
+        color = "#28a745"  # Bootstrap success green
+    elif abs_dev < 3.0:
+        # Moderate deviation: yellow/orange
+        color = "#ffc107"  # Bootstrap warning yellow
+    else:
+        # Large deviation: red
+        color = "#dc3545"  # Bootstrap danger red
+    
+    # Format with sign
+    sign = "+" if deviation_pct > 0 else ""
+    formatted = f"{sign}{deviation_pct:.2f}%"
+    
+    return f'<span style="color: {color}; font-weight: bold;">{formatted}</span>'
+
+
 def create_current_state_dataframe(portfolio: Portfolio) -> pd.DataFrame:
     """Create a DataFrame showing current portfolio state.
     
@@ -200,14 +231,18 @@ def create_current_state_dataframe(portfolio: Portfolio) -> pd.DataFrame:
     """
     data = []
     for asset in portfolio.assets:
+        # Calculate the actual deviation: current_weight - target_weight
+        deviation = asset.current_weight - asset.target_weight
+        deviation_html = format_deviation_with_color(deviation)
+        
         data.append({
             "Symbol": asset.symbol,
-            "Quantity": f"{asset.quantity:.4f}",
+            "Quantity": f"{asset.quantity:.2f}",
             "Price": format_currency(asset.price),
             "Value": format_currency(asset.current_value),
             "Current Weight": format_percentage(asset.current_weight),
             "Target Weight": format_percentage(asset.target_weight),
-            "Deviation": format_percentage(asset.deviation),
+            "Deviation": deviation_html,
         })
     return pd.DataFrame(data)
 
@@ -229,7 +264,7 @@ def create_operations_dataframe(result) -> pd.DataFrame:
             value = "-"
         else:
             action = "BUY" if asset.delta_quantity > 0 else "SELL"
-            quantity = f"{abs(asset.delta_quantity):.4f}"
+            quantity = f"{abs(asset.delta_quantity):.2f}"
             value = format_currency(abs(asset.delta_value))
         
         # Calculate tax and net proceeds for sales
@@ -268,7 +303,7 @@ def create_post_rebalancing_dataframe(result) -> pd.DataFrame:
         
         data.append({
             "Symbol": asset.symbol,
-            "New Quantity": f"{new_quantity:.4f}",
+            "New Quantity": f"{new_quantity:.2f}",
             "New Value": format_currency(new_value),
             "New Weight": format_percentage(new_weight),
             "Target Weight": format_percentage(asset.target_weight),
