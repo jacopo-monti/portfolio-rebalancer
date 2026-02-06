@@ -1,0 +1,13 @@
+# Core dependencies for Portfolio Rebalancer
+# Compatible with Python >=3.8
+
+# Data processing
+openpyxl>=3.0.0
+pandas>=1.5.0
+
+# Web application framework
+streamlit>=1.28.0
+
+# The portfolio-rebalancer package itself
+# Install from local source in editable mode
+-e .
