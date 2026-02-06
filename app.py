@@ -717,7 +717,8 @@ with tab2:
                 engine = RebalancingEngine()
                 engine._compute_current_state(portfolio)
                 
-                current_df = create_current_state_dataframe(portfolio)
+                # Pass get_text function for translated table headers
+                current_df = create_current_state_dataframe(portfolio, get_text)
                 # Use consistent HTML rendering for all tables
                 st.write(current_df.to_html(escape=False, index=False), unsafe_allow_html=True)
                 
@@ -732,7 +733,8 @@ with tab2:
                 st.subheader(get_text("operations_title"))
                 st.markdown(get_text("operations_description"))
                 
-                operations_df = create_operations_dataframe(result)
+                # Pass get_text function for translated table headers
+                operations_df = create_operations_dataframe(result, get_text)
                 # Use consistent HTML rendering for all tables
                 st.write(operations_df.to_html(escape=False, index=False), unsafe_allow_html=True)
                 
@@ -812,7 +814,8 @@ with tab2:
                 st.subheader(get_text("post_rebalancing_title"))
                 st.markdown(get_text("post_rebalancing_description"))
                 
-                post_df = create_post_rebalancing_dataframe(result)
+                # Pass get_text function for translated table headers
+                post_df = create_post_rebalancing_dataframe(result, get_text)
                 # Use consistent HTML rendering for all tables
                 st.write(post_df.to_html(escape=False, index=False), unsafe_allow_html=True)
                 
