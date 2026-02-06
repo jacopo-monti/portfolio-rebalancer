@@ -704,7 +704,7 @@ with tab2:
                 engine._compute_current_state(portfolio)
                 
                 current_df = create_current_state_dataframe(portfolio)
-                # Use st.write with unsafe_allow_html to render color-coded deviation
+                # Use consistent HTML rendering for all tables
                 st.write(current_df.to_html(escape=False, index=False), unsafe_allow_html=True)
                 
                 col1, col2 = st.columns(2)
@@ -719,7 +719,8 @@ with tab2:
                 st.markdown("Buy and sell operations needed to reach target allocation:")
                 
                 operations_df = create_operations_dataframe(result)
-                st.dataframe(operations_df, use_container_width=True, hide_index=True)
+                # Use consistent HTML rendering for all tables
+                st.write(operations_df.to_html(escape=False, index=False), unsafe_allow_html=True)
                 
                 st.markdown("---")
                 st.subheader("💰 Cash Flow Summary")
@@ -804,7 +805,8 @@ with tab2:
                 st.markdown("Your portfolio after executing the operations:")
                 
                 post_df = create_post_rebalancing_dataframe(result)
-                st.dataframe(post_df, use_container_width=True, hide_index=True)
+                # Use consistent HTML rendering for all tables
+                st.write(post_df.to_html(escape=False, index=False), unsafe_allow_html=True)
                 
                 col1, col2 = st.columns(2)
                 with col1:
