@@ -33,7 +33,6 @@ This software is provided "AS IS" without warranty of any kind. The authors make
 
 ## 📖 Table of Contents
 
-- [Quick Start](#-quick-start)
 - [Installation](#-installation)
 - [Usage](#-usage)
   - [Mode 1: Web App (Recommended)](#mode-1-web-app-recommended)
@@ -46,35 +45,6 @@ This software is provided "AS IS" without warranty of any kind. The authors make
 - [Documentation](#-documentation)
 - [Licensing](#-licensing)
 - [Contact](#-contact)
-
----
-
-## 🚀 Quick Start
-
-The fastest way to use the portfolio rebalancer:
-
-```bash
-# 1. Clone the repository
-git clone https://github.com/jacopo-monti/portfolio-rebalancer.git
-cd portfolio-rebalancer
-
-# 2. Create and activate environment
-# Using conda:
-conda create -n portfolio-rebalancer python=3.10
-conda activate portfolio-rebalancer
-
-# Or using venv:
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# 3. Install dependencies
-pip install -r requirements.txt
-
-# 4. Launch the web app
-streamlit run app.py
-```
-
-Your browser will open at `http://localhost:7860` with the interactive interface.
 
 ---
 
@@ -94,7 +64,7 @@ cd portfolio-rebalancer
 
 ### Step 2: Create Environment
 
-Using **conda** (recommended):
+Using **conda**:
 
 ```bash
 conda create -n portfolio-rebalancer python=3.10
