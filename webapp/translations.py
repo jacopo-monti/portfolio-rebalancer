@@ -198,6 +198,24 @@ All data is stored in-memory and lost when you close the browser.""",
         "verify_settings_warning": "👉 The portfolio configuration may have changed. Please go to the **Target & Portfolio** tab to verify your settings, then run the analysis again.",
         "technical_details_expander": "🔧 Technical Details (for debugging)",
         
+        # Table column headers - Current Portfolio State
+        "table_symbol": "Symbol",
+        "table_quantity": "Quantity",
+        "table_price": "Price",
+        "table_value": "Value",
+        "table_current_weight": "Current Weight",
+        "table_target_weight": "Target Weight",
+        "table_deviation": "Deviation",
+        
+        # Table column headers - Required Operations
+        "table_action": "Action",
+        "table_tax_if_selling": "Tax (if selling)",
+        
+        # Table column headers - Post-Rebalancing
+        "table_new_quantity": "New Quantity",
+        "table_new_value": "New Value",
+        "table_new_weight": "New Weight",
+        
         # Tab 3: Settings
         "settings_title": "Algorithm Settings",
         "settings_description": "Configure how the rebalancing algorithm behaves. These settings affect the calculation in the Analysis tab.",
@@ -428,6 +446,24 @@ Tutti i dati sono memorizzati in memoria e vengono persi quando chiudi il browse
         "display_error": "⚠️ Si è verificato un errore durante la visualizzazione dei risultati.",
         "verify_settings_warning": "👉 La configurazione del portfolio potrebbe essere cambiata. Vai alla scheda **Target & Portfolio** per verificare le impostazioni, poi esegui nuovamente l'analisi.",
         "technical_details_expander": "🔧 Dettagli Tecnici (per il debug)",
+        
+        # Table column headers - Current Portfolio State
+        "table_symbol": "Simbolo",
+        "table_quantity": "Quantità",
+        "table_price": "Prezzo",
+        "table_value": "Valore",
+        "table_current_weight": "Peso Attuale",
+        "table_target_weight": "Peso Target",
+        "table_deviation": "Deviazione",
+        
+        # Table column headers - Required Operations
+        "table_action": "Azione",
+        "table_tax_if_selling": "Tassa (in caso di vendita)",
+        
+        # Table column headers - Post-Rebalancing
+        "table_new_quantity": "Nuova Quantità",
+        "table_new_value": "Nuovo Valore",
+        "table_new_weight": "Nuovo Peso",
         
         # Tab 3: Settings
         "settings_title": "Impostazioni Algoritmo",
