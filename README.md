@@ -50,6 +50,7 @@ Consult qualified professionals for personalized advice.
 ## 📖 Table of Contents
 
 - [Instructions](#-instructions)
+  - [Web Application (Recommended)](#web-application-recommended)
   - [Installation](#installation)
   - [Basic Usage](#basic-usage)
   - [Excel Workflow](#excel-workflow)
@@ -67,6 +68,79 @@ Consult qualified professionals for personalized advice.
 ---
 
 ## 📋 Instructions
+
+### Web Application (Recommended)
+
+**New!** The easiest way to use the portfolio rebalancer is through the local web application.
+
+#### Quick Start
+
+1. **Install the package**:
+   ```bash
+   pip install portfolio-rebalancer
+   ```
+
+2. **Launch the web app**:
+   ```bash
+   streamlit run app.py
+   ```
+
+3. **Open your browser**:
+   - The app will automatically open at `http://localhost:8501`
+   - If it doesn't open automatically, navigate to the URL shown in your terminal
+
+#### Web App Features
+
+The web application provides an intuitive interface with three main tabs:
+
+**🎯 Target & Portfolio Tab**
+- Enter your assets in an Excel-like table
+- Edit quantities, prices, and target weights directly in the browser
+- Configure broker commissions for each asset
+- Set available cash to deploy
+- Real-time validation of your inputs
+
+**📈 Analysis Tab**
+- Run the rebalancing calculation with one click
+- View current portfolio state with weights and deviations
+- See required buy/sell operations
+- Review cash flow summary (sales vs. purchases)
+- Check post-rebalancing portfolio allocation
+- Get accuracy metrics and warnings
+
+**⚙️ Settings Tab**
+- Configure rounding policy (for whole shares)
+- View algorithm information and assumptions
+- Understand limitations and constraints
+
+#### Benefits of the Web App
+
+- ✅ **No coding required** - use a visual interface instead of Python scripts
+- ✅ **Interactive editing** - modify data like a spreadsheet
+- ✅ **Instant feedback** - see results immediately
+- ✅ **Visual clarity** - formatted tables and metrics
+- ✅ **Local and private** - runs entirely on your computer, no data uploaded
+- ✅ **In-memory only** - no database, data is lost when you close the browser
+
+#### System Requirements
+
+- Python 3.8 or higher
+- Modern web browser (Chrome, Firefox, Safari, Edge)
+- ~50MB free disk space (for dependencies)
+
+#### Troubleshooting the Web App
+
+**Problem**: "streamlit: command not found"
+- **Solution**: Make sure streamlit is installed: `pip install streamlit`
+
+**Problem**: Port already in use
+- **Solution**: Use a different port: `streamlit run app.py --server.port 8502`
+
+**Problem**: Browser doesn't open automatically
+- **Solution**: Manually open the URL shown in your terminal (usually `http://localhost:8501`)
+
+**Problem**: Changes don't save
+- **Solution**: This is by design - the web app stores data in-memory only. Use Python scripts or Excel for persistent workflows.
 
 ### Installation
 
@@ -334,6 +408,10 @@ The `dev` extra includes:
 
 ```
 portfolio-rebalancer/
+├── app.py                        # Streamlit web application entry point
+├── webapp/                       # Web application package
+│   ├── __init__.py
+│   └── ui_helpers.py             # UI utility functions
 ├── src/
 │   └── portfolio_rebalancer/
 │       ├── __init__.py           # Package initialization
@@ -379,6 +457,20 @@ portfolio-rebalancer/
 2. **Determinism**: Same input always produces same output (no randomness, no optimization solvers)
 3. **Testability**: Every component can be tested in isolation
 4. **Extensibility**: New policies and I/O formats without modifying core logic
+5. **UI as Wrapper**: The web app is just a thin layer over the core logic
+
+### Running the Web App Locally
+
+```bash
+# From the project root
+streamlit run app.py
+
+# With custom port
+streamlit run app.py --server.port 8502
+
+# With auto-reload for development
+streamlit run app.py --server.runOnSave true
+```
 
 ### Running Tests
 
@@ -403,10 +495,10 @@ pytest -v
 
 ```bash
 # Format code with black
-black src/ tests/
+black src/ tests/ webapp/
 
 # Check code style with flake8
-flake8 src/ tests/
+flake8 src/ tests/ webapp/
 
 # Type check with mypy
 mypy src/
