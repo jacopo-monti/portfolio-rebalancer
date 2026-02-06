@@ -538,7 +538,7 @@ with tab1:
                     st.markdown(f"### {asset['Symbol']}")
                     st.markdown(f"**Value:** {format_currency(current_value)} | "
                               f"**Target:** {asset['Target Weight (%)']}% | "
-                              f"**Quantity:** {asset['Quantity']:.4f} @ {format_currency(asset['Price'])}")
+                              f"**Quantity:** {asset['Quantity']:.2f} @ {format_currency(asset['Price'])}")
                     
                     # Additional details in expander
                     with st.expander("📊 Details", expanded=False):
@@ -546,7 +546,7 @@ with tab1:
                         
                         with detail_col1:
                             st.markdown("**Holdings**")
-                            st.markdown(f"- Quantity: {asset['Quantity']:.4f}")
+                            st.markdown(f"- Quantity: {asset['Quantity']:.2f}")
                             st.markdown(f"- Current Price: {format_currency(asset['Price'])}")
                             st.markdown(f"- Current Value: {format_currency(current_value)}")
                         
@@ -704,7 +704,8 @@ with tab2:
                 engine._compute_current_state(portfolio)
                 
                 current_df = create_current_state_dataframe(portfolio)
-                st.dataframe(current_df, use_container_width=True, hide_index=True)
+                # Use st.write with unsafe_allow_html to render color-coded deviation
+                st.write(current_df.to_html(escape=False, index=False), unsafe_allow_html=True)
                 
                 col1, col2 = st.columns(2)
                 with col1:
