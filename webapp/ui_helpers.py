@@ -220,11 +220,12 @@ def format_deviation_with_color(deviation: float) -> str:
     return f'<span style="color: {color}; font-weight: bold;">{formatted}</span>'
 
 
-def create_current_state_dataframe(portfolio: Portfolio) -> pd.DataFrame:
+def create_current_state_dataframe(portfolio: Portfolio, get_text_func) -> pd.DataFrame:
     """Create a DataFrame showing current portfolio state.
     
     Args:
         portfolio: Portfolio object with computed current state
+        get_text_func: Translation function to get localized column headers
         
     Returns:
         DataFrame with current state information
@@ -236,22 +237,23 @@ def create_current_state_dataframe(portfolio: Portfolio) -> pd.DataFrame:
         deviation_html = format_deviation_with_color(deviation)
         
         data.append({
-            "Symbol": asset.symbol,
-            "Quantity": f"{asset.quantity:.2f}",
-            "Price": format_currency(asset.price),
-            "Value": format_currency(asset.current_value),
-            "Current Weight": format_percentage(asset.current_weight),
-            "Target Weight": format_percentage(asset.target_weight),
-            "Deviation": deviation_html,
+            get_text_func("table_symbol"): asset.symbol,
+            get_text_func("table_quantity"): f"{asset.quantity:.2f}",
+            get_text_func("table_price"): format_currency(asset.price),
+            get_text_func("table_value"): format_currency(asset.current_value),
+            get_text_func("table_current_weight"): format_percentage(asset.current_weight),
+            get_text_func("table_target_weight"): format_percentage(asset.target_weight),
+            get_text_func("table_deviation"): deviation_html,
         })
     return pd.DataFrame(data)
 
 
-def create_operations_dataframe(result) -> pd.DataFrame:
+def create_operations_dataframe(result, get_text_func) -> pd.DataFrame:
     """Create a DataFrame showing required rebalancing operations.
     
     Args:
         result: RebalancingResult object
+        get_text_func: Translation function to get localized column headers
         
     Returns:
         DataFrame with operations information
@@ -263,6 +265,7 @@ def create_operations_dataframe(result) -> pd.DataFrame:
             quantity = "-"
             value = "-"
         else:
+            # Keep BUY and SELL untranslated as specified
             action = "BUY" if asset.delta_quantity > 0 else "SELL"
             quantity = f"{abs(asset.delta_quantity):.2f}"
             value = format_currency(abs(asset.delta_value))
@@ -276,20 +279,21 @@ def create_operations_dataframe(result) -> pd.DataFrame:
             tax_info = format_currency(tax_amount)
         
         data.append({
-            "Symbol": asset.symbol,
-            "Action": action,
-            "Quantity": quantity,
-            "Value": value,
-            "Tax (if selling)": tax_info if tax_info else "-",
+            get_text_func("table_symbol"): asset.symbol,
+            get_text_func("table_action"): action,
+            get_text_func("table_quantity"): quantity,
+            get_text_func("table_value"): value,
+            get_text_func("table_tax_if_selling"): tax_info if tax_info else "-",
         })
     return pd.DataFrame(data)
 
 
-def create_post_rebalancing_dataframe(result) -> pd.DataFrame:
+def create_post_rebalancing_dataframe(result, get_text_func) -> pd.DataFrame:
     """Create a DataFrame showing post-rebalancing portfolio state.
     
     Args:
         result: RebalancingResult object
+        get_text_func: Translation function to get localized column headers
         
     Returns:
         DataFrame with post-rebalancing state
@@ -305,11 +309,11 @@ def create_post_rebalancing_dataframe(result) -> pd.DataFrame:
         deviation_html = format_deviation_with_color(deviation)
         
         data.append({
-            "Symbol": asset.symbol,
-            "New Quantity": f"{new_quantity:.2f}",
-            "New Value": format_currency(new_value),
-            "New Weight": format_percentage(new_weight),
-            "Target Weight": format_percentage(asset.target_weight),
-            "Deviation": deviation_html,
+            get_text_func("table_symbol"): asset.symbol,
+            get_text_func("table_new_quantity"): f"{new_quantity:.2f}",
+            get_text_func("table_new_value"): format_currency(new_value),
+            get_text_func("table_new_weight"): format_percentage(new_weight),
+            get_text_func("table_target_weight"): format_percentage(asset.target_weight),
+            get_text_func("table_deviation"): deviation_html,
         })
     return pd.DataFrame(data)
