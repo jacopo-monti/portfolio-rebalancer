@@ -13,6 +13,180 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Portfolio optimization features
 - API documentation
 
+## [0.3.1] - 2026-02-06
+
+### Changed - Dual Licensing Implementation
+
+**🎉 Major Update: Dual Licensing Model**
+
+The project has transitioned from proprietary licensing to a **dual licensing model**, providing both open source and commercial licensing options.
+
+#### Open Source License: GNU AGPL v3.0
+
+**Adopted the GNU Affero General Public License v3.0 (AGPL-3.0)** for non-commercial use:
+
+- **Strongest copyleft license available** - ensures all modifications remain open source
+- **Network copyleft provision** - requires source disclosure even for web services
+- **Perfect fit for Streamlit app** - covers network-based usage
+- **Community-friendly** - enables open source ecosystem growth
+
+**What AGPL-3.0 requires**:
+- ✅ Release ALL source code of modifications
+- ✅ Release ALL source code of derivative works
+- ✅ Provide source to network service users
+- ✅ License entire work under AGPL-3.0
+- ✅ Preserve copyright notices
+- ✅ Document changes made
+
+**What AGPL-3.0 allows**:
+- ✅ Personal, non-commercial use
+- ✅ Modification and redistribution
+- ✅ Study and inspection
+- ✅ Educational and research use
+- ✅ Open source project integration
+
+#### Commercial License
+
+**New commercial licensing option** for business use:
+
+**When required**:
+- Commercial products or services
+- Proprietary modifications
+- Closed-source distribution
+- SaaS offerings without source disclosure
+- Enterprise deployments
+- Financial advisory platforms
+
+**Benefits**:
+- 🔓 Freedom from AGPL obligations
+- 💼 No requirement to publish source code
+- 🔒 Keep modifications proprietary
+- 📦 Commercial distribution rights
+- 🛡️ Priority support (tier-dependent)
+- 📝 Custom feature development (negotiable)
+
+**License Tiers**:
+1. **Startup License** - Companies < 10 employees or < $1M revenue
+2. **Business License** - Companies < 100 employees or < $10M revenue
+3. **Enterprise License** - Larger organizations with custom terms
+4. **OEM/Redistribution License** - For software vendors
+
+#### Files Added
+
+- **LICENSE**: Full GNU AGPL v3.0 license text (replaces proprietary license)
+- **LICENSE-COMMERCIAL.md**: Comprehensive commercial licensing documentation
+  - License tier descriptions
+  - Pricing guidelines
+  - Benefits and restrictions
+  - FAQ section
+  - Contact information
+
+#### Documentation Updates
+
+**README.md**:
+- New comprehensive **Licensing** section
+- Dual license badge display
+- Clear explanation of when each license applies
+- "Which license do I need?" decision guide
+- Commercial inquiry contact information
+
+**pyproject.toml**:
+- Updated `license` field to reflect dual licensing
+- Changed from "Proprietary" to dual declaration
+- Updated license classifiers
+
+#### Why Dual Licensing?
+
+This model provides the best of both worlds:
+
+1. **Open Source Community**:
+   - Free for personal, educational, and open source use
+   - Strong copyleft ensures improvements benefit everyone
+   - Transparent, auditable code
+   - Community contributions welcome
+
+2. **Commercial Sustainability**:
+   - Revenue from commercial licenses funds development
+   - Businesses get flexibility for proprietary use
+   - Professional support options available
+   - Custom feature development possible
+
+3. **Legal Clarity**:
+   - Clear separation between free and paid use
+   - No ambiguity about commercial requirements
+   - Protection for both users and copyright holder
+
+#### Compliance Notes
+
+**For Open Source Users**:
+- Must comply with AGPL-3.0 obligations
+- Must release source code of modifications
+- Must provide source to network service users
+- Cannot use for commercial purposes without commercial license
+
+**For Commercial Users**:
+- Must obtain commercial license before commercial deployment
+- Contact copyright holder for licensing inquiries
+- Evaluation under AGPL-3.0 permitted before purchase
+
+**Transition Period**:
+- Existing users should review which license applies
+- Commercial users must obtain license by [TBD]
+- Open source use remains free under AGPL-3.0
+
+### Technical Details
+
+#### License Implementation
+
+**AGPL-3.0 Features**:
+- Section 13: Network interaction clause (key for web apps)
+- Requires source provision for remote network users
+- Derivative works must be AGPL-3.0 licensed
+- Compatible with GPL v3
+
+**Commercial License Structure**:
+- Non-exclusive, non-transferable rights
+- Freedom from AGPL copyleft obligations
+- Tiered pricing based on company size and use case
+- Optional support and custom development
+
+#### Choosing a License
+
+**Decision Tree**:
+
+```
+Are you using for commercial purposes?
+├─ YES → Need Commercial License
+│   ├─ Startup tier (< $1M revenue)
+│   ├─ Business tier (< $10M revenue)
+│   └─ Enterprise tier (larger)
+└─ NO → Can use AGPL-3.0
+    ├─ Personal use ✅
+    ├─ Educational use ✅
+    ├─ Open source project ✅
+    └─ Must share modifications ❗
+```
+
+### Impact
+
+✅ **Enables open source ecosystem** - Community can fork, modify, improve  
+✅ **Protects open source nature** - AGPL ensures modifications stay open  
+✅ **Provides commercial option** - Businesses can use without AGPL restrictions  
+✅ **Funds ongoing development** - Commercial revenue sustains project  
+✅ **Legal clarity** - Clear terms for all use cases  
+✅ **Backward compatible** - Existing open source use unaffected
+
+### Contact for Commercial Licensing
+
+**Jacopo Monti**  
+Email: jacopo.monti.jm@gmail.com  
+GitHub: [@jacopo-monti](https://github.com/jacopo-monti)  
+Repository: [github.com/jacopo-monti/portfolio-rebalancer](https://github.com/jacopo-monti/portfolio-rebalancer)
+
+**Response time**: 2-3 business days for commercial inquiries
+
+---
+
 ## [0.3.0] - 2026-02-06
 
 ### Added - Web Interface
@@ -267,7 +441,8 @@ if abs(cash_flow / total_cash_out) < 1e-10:  # Scales with portfolio size
 
 ---
 
-[Unreleased]: https://github.com/jacopo-monti/portfolio-rebalancer/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/jacopo-monti/portfolio-rebalancer/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/jacopo-monti/portfolio-rebalancer/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/jacopo-monti/portfolio-rebalancer/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/jacopo-monti/portfolio-rebalancer/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/jacopo-monti/portfolio-rebalancer/compare/v0.1.0...v0.1.1
