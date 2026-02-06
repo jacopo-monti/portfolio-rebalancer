@@ -1,9 +1,10 @@
 # Portfolio Rebalancer
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://github.com/jacopo-monti/portfolio-rebalancer/workflows/Tests/badge.svg)](https://github.com/jacopo-monti/portfolio-rebalancer/actions)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
+[![Commercial License](https://img.shields.io/badge/License-Commercial-orange.svg)](LICENSE-COMMERCIAL.md)
 
-A deterministic portfolio rebalancing tool with tax-aware calculations and broker commission support.
+A deterministic portfolio rebalancing tool with tax-aware calculations, broker commission support, and an intuitive web interface.
 
 ---
 
@@ -21,168 +22,184 @@ This is a mathematical calculation tool only. It:
 - ❌ **Does NOT make predictions** about markets, asset prices, or future performance
 - ❌ **Does NOT recommend** which assets to buy, sell, or hold
 - ❌ **Does NOT provide advice** on investment strategy, asset allocation, or financial planning
-- ❌ **Does NOT consider** your personal financial situation, goals, risk tolerance, or constraints
 
-**All investment decisions are entirely your own responsibility.**
+**All investment decisions are entirely your own responsibility. Consult qualified professionals for personalized advice.**
 
 ### No Warranty
 
-This software is provided "AS IS" without warranty of any kind, express or implied. The authors:
-
-- Make no guarantees about accuracy, reliability, or suitability for any purpose
-- Are not liable for any damages, losses, or consequences from using this software
-- Do not guarantee that calculations are error-free or appropriate for your situation
-
-**Use this software entirely at your own risk. Verify all results independently.**
-
-### Not Professional Services
-
-This software does not substitute for:
-- Professional financial advisors
-- Certified tax accountants
-- Qualified investment managers
-- Legal counsel
-
-Consult qualified professionals for personalized advice.
+This software is provided "AS IS" without warranty of any kind. The authors make no guarantees about accuracy, reliability, or suitability, and are not liable for any damages or losses from using this software.
 
 ---
 
 ## 📖 Table of Contents
 
-- [Instructions](#-instructions)
-  - [Web Application (Recommended)](#web-application-recommended)
-  - [Installation](#installation)
-  - [Basic Usage](#basic-usage)
-  - [Excel Workflow](#excel-workflow)
-  - [Advanced Options](#advanced-options)
-  - [Troubleshooting](#troubleshooting)
-- [For Developers](#-for-developers)
-  - [Development Setup](#development-setup)
-  - [Project Structure](#project-structure)
-  - [Running Tests](#running-tests)
-  - [Contributing](#contributing)
+- [Installation](#-installation)
+- [Usage](#-usage)
+  - [Mode 1: Web App (Recommended)](#mode-1-web-app-recommended)
+  - [Mode 2: Excel Mode](#mode-2-excel-mode)
+  - [Mode 3: Autocode Mode](#mode-3-autocode-mode)
 - [Algorithm](#-algorithm)
+- [For Developers](#-for-developers)
+  - [Running Tests](#running-tests)
+  - [Code Quality](#code-quality)
 - [Documentation](#-documentation)
-- [Copyright](#-copyright)
+- [Licensing](#-licensing)
+- [Contact](#-contact)
 
 ---
 
-## 📋 Instructions
+## 💻 Installation
 
-### Web Application (Recommended)
-
-**New!** The easiest way to use the portfolio rebalancer is through the local web application.
-
-#### Quick Start
-
-1. **Install the package**:
-   ```bash
-   pip install portfolio-rebalancer
-   ```
-
-2. **Launch the web app**:
-   ```bash
-   streamlit run app.py
-   ```
-
-3. **Open your browser**:
-   - The app will automatically open at `http://localhost:8501`
-   - If it doesn't open automatically, navigate to the URL shown in your terminal
-
-#### Web App Features
-
-The web application provides an intuitive interface with three main tabs:
-
-**🎯 Target & Portfolio Tab**
-- Enter your assets in an Excel-like table
-- Edit quantities, prices, and target weights directly in the browser
-- Configure broker commissions for each asset
-- Set available cash to deploy
-- Real-time validation of your inputs
-
-**📈 Analysis Tab**
-- Run the rebalancing calculation with one click
-- View current portfolio state with weights and deviations
-- See required buy/sell operations
-- Review cash flow summary (sales vs. purchases)
-- Check post-rebalancing portfolio allocation
-- Get accuracy metrics and warnings
-
-**⚙️ Settings Tab**
-- Configure rounding policy (for whole shares)
-- View algorithm information and assumptions
-- Understand limitations and constraints
-
-#### Benefits of the Web App
-
-- ✅ **No coding required** - use a visual interface instead of Python scripts
-- ✅ **Interactive editing** - modify data like a spreadsheet
-- ✅ **Instant feedback** - see results immediately
-- ✅ **Visual clarity** - formatted tables and metrics
-- ✅ **Local and private** - runs entirely on your computer, no data uploaded
-- ✅ **In-memory only** - no database, data is lost when you close the browser
-
-#### System Requirements
-
-- Python 3.8 or higher
-- Modern web browser (Chrome, Firefox, Safari, Edge)
-- ~50MB free disk space (for dependencies)
-
-#### Troubleshooting the Web App
-
-**Problem**: "streamlit: command not found"
-- **Solution**: Make sure streamlit is installed: `pip install streamlit`
-
-**Problem**: Port already in use
-- **Solution**: Use a different port: `streamlit run app.py --server.port 8502`
-
-**Problem**: Browser doesn't open automatically
-- **Solution**: Manually open the URL shown in your terminal (usually `http://localhost:8501`)
-
-**Problem**: Changes don't save
-- **Solution**: This is by design - the web app stores data in-memory only. Use Python scripts or Excel for persistent workflows.
-
-### Installation
-
-#### Requirements
+### Prerequisites
 - Python 3.8 or higher
 - pip (Python package manager)
+- Git
 
-#### From PyPI (Recommended)
-
-```bash
-pip install portfolio-rebalancer
-```
-
-#### From Source
+### Step 1: Clone Repository
 
 ```bash
 git clone https://github.com/jacopo-monti/portfolio-rebalancer.git
 cd portfolio-rebalancer
-pip install .
 ```
 
-### Basic Usage
+### Step 2: Create Environment
 
-#### Step 1: Prepare Your Data
+Using **conda**:
 
-You need the following information for each asset in your portfolio:
+```bash
+conda create -n portfolio-rebalancer python=3.10
+conda activate portfolio-rebalancer
+```
 
-**Required:**
-- **Symbol**: Asset identifier (e.g., ticker symbol)
-- **Quantity**: Number of shares you currently own
-- **Price**: Current market price per share
-- **Average Cost**: Your average purchase price (for tax calculation)
-- **Tax Rate**: Capital gains tax rate as decimal (e.g., 0.26 for 26%)
-- **Target Weight**: Desired percentage of total portfolio (e.g., 0.60 for 60%)
+Using **venv**:
 
-**Optional (broker commissions):**
-- **Buy/Sell Commissions**: Fixed fees and/or percentage-based fees with min/max bounds
-- See [docs/BROKER_COMMISSIONS.md](docs/BROKER_COMMISSIONS.md) for detailed information
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
 
-#### Step 2: Create a Python Script
+### Step 3: Install Dependencies
 
-Create a file called `my_rebalance.py`:
+```bash
+pip install -r requirements.txt
+```
+
+This installs:
+- `streamlit` - Web application framework
+- `pandas` - Data processing
+- `openpyxl` - Excel file support
+- `portfolio-rebalancer` package (local source)
+
+---
+
+## 📊 Usage
+
+Choose one of three modes based on your preference:
+
+### Mode 1: Web App (Recommended)
+
+**Best for**: Visual interface, interactive editing, no coding required
+
+#### Step 1: Activate Environment
+
+```bash
+# If using conda:
+conda activate portfolio-rebalancer
+
+# If using venv:
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+
+#### Step 2: Navigate to Repository
+
+```bash
+cd /path/to/portfolio-rebalancer
+```
+
+#### Step 3: Run Streamlit App
+
+```bash
+streamlit run app.py
+```
+
+The app will automatically open at `http://localhost:7860` (or `http://localhost:8501` depending on your Streamlit version).
+
+#### Web App Features
+
+**🎯 Target & Portfolio Tab**
+- Add assets in an Excel-like editable table
+- Set quantities, prices, average costs, and target weights
+- Configure broker commissions (optional)
+- Define available cash to deploy
+- Real-time validation
+
+**📈 Analysis Tab**
+- Run rebalancing calculation with one click
+- View current portfolio state with deviations
+- See required buy/sell operations
+- Review cash flow summary and tax breakdown
+- Check post-rebalancing portfolio
+
+**⚙️ Settings Tab**
+- Configure rounding policy (FLOOR, ROUND, CEIL)
+- Select language (English / Italian)
+- View algorithm information
+
+**Benefits**:
+- ✅ No coding required
+- ✅ Interactive, visual interface
+- ✅ Instant feedback
+- ✅ Multi-language support
+- ✅ Runs entirely locally (no data uploaded)
+- ✅ In-memory only (no database)
+
+---
+
+### Mode 2: Excel Mode
+
+**Best for**: Spreadsheet users, batch processing, persistent data
+
+#### Step 1: Create Excel Template
+
+Run the template generator:
+
+```bash
+python examples/create_excel_template.py
+```
+
+This creates `portfolio_template.xlsx` with the correct column structure.
+
+#### Step 2: Modify Template
+
+Open `portfolio_template.xlsx` and enter your portfolio data:
+
+| Symbol | Quantity | Price | Avg Cost | Tax Rate | Target Weight | ... |
+|--------|----------|-------|----------|----------|---------------|-----|
+| VWCE   | 50       | 100   | 95       | 0.26     | 0.60          | ... |
+| AGGH   | 30       | 110   | 108      | 0.26     | 0.25          | ... |
+| EIMI   | 20       | 135   | 130      | 0.26     | 0.15          | ... |
+
+**Note**: Target weights must sum to 1.0 (100%).
+
+#### Step 3: Run Analysis
+
+Execute the Excel rebalancing script:
+
+```bash
+python examples/my_rebalance_excel.py
+```
+
+Results are saved to `rebalancing_result.xlsx`.
+
+---
+
+### Mode 3: Autocode Mode
+
+**Best for**: Developers, scripting, automation, version control
+
+#### Step 1: Create Python Script
+
+Copy and modify `examples/my_rebalance.py`:
 
 ```python
 from portfolio_rebalancer.models import Portfolio, Asset
@@ -192,12 +209,12 @@ from portfolio_rebalancer.engine import RebalancingEngine
 portfolio = Portfolio(
     assets=[
         Asset(
-            symbol="VWCE",           # Asset name/ticker
-            quantity=50.0,           # Shares you own
-            price=100.0,             # Current market price
-            avg_cost=95.0,           # Your average purchase price
-            tax_rate=0.26,           # Tax rate (26% = 0.26)
-            target_weight=0.60       # Target: 60% of portfolio
+            symbol="VWCE",
+            quantity=50.0,
+            price=100.0,
+            avg_cost=95.0,
+            tax_rate=0.26,
+            target_weight=0.60
         ),
         Asset(
             symbol="AGGH",
@@ -205,484 +222,328 @@ portfolio = Portfolio(
             price=110.0,
             avg_cost=108.0,
             tax_rate=0.26,
-            target_weight=0.25       # Target: 25% of portfolio
+            target_weight=0.25
         ),
-        Asset(
-            symbol="EIMI",
-            quantity=20.0,
-            price=135.0,
-            avg_cost=130.0,
-            tax_rate=0.26,
-            target_weight=0.15       # Target: 15% of portfolio
-        ),
+        # Add more assets...
     ]
 )
 
-# Create rebalancing engine
+# Create engine and rebalance
 engine = RebalancingEngine()
-
-# Calculate rebalancing operations
 result = engine.rebalance(portfolio)
 
-# Print detailed results
-print("\n" + "="*60)
-print("PORTFOLIO REBALANCING RESULTS")
-print("="*60)
-
-print(f"\nTotal Portfolio Value: €{result.total_value_before:,.2f}")
+# Print results
+print(f"Total Value: €{result.total_value_before:,.2f}")
 print(f"Cash Flow: €{result.cash_flow:,.2f}")
 print(f"Max Deviation: {result.max_deviation*100:.2f}%")
 
-print("\nOperations Needed:")
-print("-" * 60)
 for asset in result.assets:
     action = "BUY" if asset.delta_quantity > 0 else "SELL"
-    print(f"{asset.symbol:6s} {action:4s} {abs(asset.delta_quantity):8.2f} shares "
-          f"(€{abs(asset.delta_value):,.2f})")
-
-print("\nPost-Rebalancing Portfolio:")
-print("-" * 60)
-for asset in result.assets:
-    new_qty = asset.quantity + asset.delta_quantity
-    new_value = new_qty * asset.price
-    new_weight = new_value / result.total_value_after
-    print(f"{asset.symbol:6s}: {new_qty:8.2f} shares @ €{asset.price:7.2f} = "
-          f"€{new_value:10,.2f} ({new_weight*100:5.2f}% vs target {asset.target_weight*100:.2f}%)")
+    print(f"{asset.symbol}: {action} {abs(asset.delta_quantity):.2f} shares")
 ```
 
-#### Step 3: Run the Script
+#### Step 2: Populate Asset Data
+
+Edit the script with your actual portfolio data:
+- Update `symbol`, `quantity`, `price`, `avg_cost`, `tax_rate`, `target_weight`
+- Add or remove assets as needed
+- Ensure target weights sum to 1.0
+
+#### Step 3: Execute Script
 
 ```bash
-python my_rebalance.py
+python examples/my_rebalance.py
 ```
 
-#### Understanding the Output
-
-The output will show:
-1. **Current state**: Your portfolio before rebalancing
-2. **Operations needed**: Which assets to buy/sell and by how much
-3. **Cash flow**: Net cash required (should be close to zero, or match available cash)
-4. **Post-rebalancing state**: Expected portfolio after operations
-5. **Deviations**: How close you'll be to your target weights
-
-### Excel Workflow
-
-For users who prefer working with spreadsheets:
-
-#### Step 1: Create Excel Template
-
-Create an Excel file with these columns:
-
-| Symbol | Quantity | Price | Avg Cost | Tax Rate | Target Weight |
-|--------|----------|-------|----------|----------|---------------|
-| VWCE   | 50       | 100   | 95       | 0.26     | 0.60          |
-| AGGH   | 30       | 110   | 108      | 0.26     | 0.25          |
-| EIMI   | 20       | 135   | 130      | 0.26     | 0.15          |
-
-**Note**: Target weights must sum to 1.0 (100%). Commission columns are optional (see [BROKER_COMMISSIONS.md](docs/BROKER_COMMISSIONS.md)).
-
-#### Step 2: Load and Process
-
-```python
-from portfolio_rebalancer.io import ExcelIO
-from portfolio_rebalancer.engine import RebalancingEngine
-
-# Load portfolio from Excel
-io = ExcelIO()
-portfolio = io.read_portfolio("my_portfolio.xlsx")
-
-# Rebalance
-engine = RebalancingEngine()
-result = engine.rebalance(portfolio)
-
-# Save results to Excel
-io.write_result(result, "rebalancing_result.xlsx")
-
-print("Results saved to rebalancing_result.xlsx")
-```
-
-### Advanced Options
-
-#### Broker Commissions
-
-You can specify broker transaction fees for each asset:
-
-```python
-Asset(
-    symbol="VWCE",
-    quantity=50.0,
-    price=100.0,
-    avg_cost=95.0,
-    tax_rate=0.26,
-    target_weight=0.60,
-    # Fixed + percentage commission with min/max bounds
-    commission_buy_fixed=2.50,      # €2.50 fixed fee
-    commission_buy_percent=0.001,   # + 0.1% of transaction
-    commission_buy_min=1.00,        # minimum €1.00
-    commission_buy_max=10.00,       # maximum €10.00
-    commission_sell_fixed=2.50,     # Same for sell
-    commission_sell_percent=0.001,
-    commission_sell_min=1.00,
-    commission_sell_max=10.00,
-)
-```
-
-See [docs/BROKER_COMMISSIONS.md](docs/BROKER_COMMISSIONS.md) for detailed documentation and examples.
-
-#### Rounding Policy
-
-If you want to buy/sell only whole shares (no fractional shares):
-
-```python
-from portfolio_rebalancer.policies import RoundingPolicy
-
-# Round to nearest integer
-engine = RebalancingEngine(rounding_policy=RoundingPolicy.ROUND)
-result = engine.rebalance(portfolio)
-
-# Other options:
-# RoundingPolicy.FLOOR  - Always round down
-# RoundingPolicy.CEIL   - Always round up
-```
-
-**Note**: Rounding will cause:
-- Cash flow to deviate from zero
-- Post-rebalancing weights to deviate slightly from targets
-
-These deviations are reported in the results.
-
-### Troubleshooting
-
-**Problem**: "Target weights must sum to 1.0"
-- **Solution**: Make sure all target weights add up to exactly 1.0 (100%)
-
-**Problem**: "Quantity must be non-negative"
-- **Solution**: Check that all quantities are positive numbers or zero
-
-**Problem**: "Price must be positive"
-- **Solution**: Ensure all prices are greater than zero
-
-**Problem**: Large cash flow imbalance
-- **Solution**: This can happen when:
-  - Assets with large capital gains need to be sold (taxes reduce cash inflow)
-  - Broker commissions increase transaction costs
-  - Portfolio is heavily imbalanced
-  - Check your input data for errors
-
----
-
-## 👨‍💻 For Developers
-
-### Development Setup
-
-#### Prerequisites
-- Python 3.8+
-- Git
-- pip
-
-#### Clone and Install
-
-```bash
-# Clone repository
-git clone https://github.com/jacopo-monti/portfolio-rebalancer.git
-cd portfolio-rebalancer
-
-# Create virtual environment (recommended)
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install in development mode with dev dependencies
-pip install -e ".[dev]"
-```
-
-#### Development Dependencies
-
-The `dev` extra includes:
-- `pytest` - Testing framework
-- `pytest-cov` - Coverage reporting
-- `black` - Code formatter
-- `flake8` - Linter
-- `mypy` - Static type checker
-
-### Project Structure
-
-```
-portfolio-rebalancer/
-├── app.py                        # Streamlit web application entry point
-├── webapp/                       # Web application package
-│   ├── __init__.py
-│   └── ui_helpers.py             # UI utility functions
-├── src/
-│   └── portfolio_rebalancer/
-│       ├── __init__.py           # Package initialization
-│       ├── models/               # Data models
-│       │   ├── __init__.py
-│       │   ├── asset.py          # Asset class
-│       │   ├── portfolio.py      # Portfolio class
-│       │   └── result.py         # RebalancingResult class
-│       ├── engine/               # Core rebalancing logic
-│       │   ├── __init__.py
-│       │   └── rebalancer.py     # RebalancingEngine (8-step algorithm)
-│       ├── policies/             # Rounding and tolerance policies
-│       │   ├── __init__.py
-│       │   └── rounding.py       # RoundingPolicy enum
-│       └── io/                   # Input/Output handlers
-│           ├── __init__.py
-│           └── excel.py          # Excel I/O (future)
-├── tests/                        # Test suite
-│   ├── __init__.py
-│   ├── test_engine.py            # Engine tests
-│   ├── test_models.py            # Model tests
-│   └── test_commissions.py       # Commission tests
-├── examples/                     # Example scripts
-│   ├── example_basic.py
-│   ├── example_rounding.py
-│   └── example_with_commissions.py
-├── docs/                         # Documentation
-│   ├── ALGORITHM.md
-│   ├── DESIGN.md
-│   ├── BROKER_COMMISSIONS.md
-│   └── CONTRIBUTING.md
-├── .github/
-│   └── workflows/
-│       └── tests.yml             # CI/CD configuration
-├── README.md                     # This file
-├── pyproject.toml               # Project metadata and dependencies
-└── .gitignore
-```
-
-### Architecture Principles
-
-1. **Core/IO Separation**: The core engine (`engine/`) has zero I/O dependencies
-2. **Determinism**: Same input always produces same output (no randomness, no optimization solvers)
-3. **Testability**: Every component can be tested in isolation
-4. **Extensibility**: New policies and I/O formats without modifying core logic
-5. **UI as Wrapper**: The web app is just a thin layer over the core logic
-
-### Running the Web App Locally
-
-```bash
-# From the project root
-streamlit run app.py
-
-# With custom port
-streamlit run app.py --server.port 8502
-
-# With auto-reload for development
-streamlit run app.py --server.runOnSave true
-```
-
-### Running Tests
-
-```bash
-# Run all tests
-pytest
-
-# Run with coverage
-pytest --cov=portfolio_rebalancer --cov-report=html
-
-# Run specific test file
-pytest tests/test_engine.py
-
-# Run specific test
-pytest tests/test_engine.py::TestRebalancingEngine::test_cash_flow_approximates_zero
-
-# Run with verbose output
-pytest -v
-```
-
-### Code Quality
-
-```bash
-# Format code with black
-black src/ tests/ webapp/
-
-# Check code style with flake8
-flake8 src/ tests/ webapp/
-
-# Type check with mypy
-mypy src/
-```
-
-### Contributing
-
-Contributions are welcome! Please:
-
-- Open issues for bug reports or feature requests
-- Submit pull requests with clear descriptions
-- Ensure tests pass before submitting
-- Follow existing code style and conventions
-
-#### Contribution Workflow
-
-1. **Fork** the repository
-2. **Create a branch** for your feature:
-   ```bash
-   git checkout -b feature/my-feature
-   ```
-3. **Make your changes** and ensure tests pass:
-   ```bash
-   pytest
-   ```
-4. **Commit** your changes:
-   ```bash
-   git commit -am 'Add new feature: description'
-   ```
-5. **Push** to your fork:
-   ```bash
-   git push origin feature/my-feature
-   ```
-6. **Open a Pull Request** on GitHub
-
-See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for detailed guidelines.
-
-### Adding New Features
-
-#### Example: Adding a New Rounding Policy
-
-1. **Update the enum** in `src/portfolio_rebalancer/policies/rounding.py`:
-   ```python
-   class RoundingPolicy(Enum):
-       FLOOR = "floor"
-       ROUND = "round"
-       CEIL = "ceil"
-       CUSTOM = "custom"  # New policy
-   ```
-
-2. **Implement logic** in `src/portfolio_rebalancer/engine/rebalancer.py`:
-   ```python
-   def _apply_rounding(self, portfolio: Portfolio, policy: RoundingPolicy) -> None:
-       for asset in portfolio.assets:
-           if policy == RoundingPolicy.CUSTOM:
-               # Your custom logic here
-               asset.delta_quantity = custom_round(asset.delta_quantity)
-   ```
-
-3. **Add tests** in `tests/test_policies.py`:
-   ```python
-   def test_custom_rounding_policy():
-       # Test your new policy
-       pass
-   ```
-
-4. **Update documentation** in relevant files
-
-5. **Submit pull request**
+Results are printed to the console.
+
+**Benefits**:
+- ✅ Full programmatic control
+- ✅ Easy to version control
+- ✅ Scriptable and automatable
+- ✅ Integrates with other Python code
 
 ---
 
 ## 📐 Algorithm
 
-The tool implements a deterministic 8-step algorithm:
+The tool implements a deterministic 8-step algorithm that:
 
-### Step 1: Current Portfolio State
+1. **Computes current portfolio state** - Calculate current values and weights
+2. **Calculates deviations** - Measure distance from target allocation
+3. **Determines target value changes** - Compute required adjustments in currency
+4. **Converts to share quantities** - Translate value changes to shares
+5. **Calculates cash flow** - Account for taxes and commissions
+6. **Closes cash flow** - Apply proportional scaling for cash neutrality
+7. **Simulates post-rebalancing state** - Project final portfolio
+8. **Applies rounding** - Optional integer share adjustment
 
-For each asset *i*:
-```
-Vᵢ = Qᵢ × Pᵢ
-ŵᵢ = Vᵢ / V_total
-```
+**Key characteristics**:
+- ✅ **Deterministic**: Same input always produces same output
+- ✅ **Transparent**: Every step is mathematically explicit
+- ✅ **Tax-aware**: Considers capital gains tax
+- ✅ **Commission-aware**: Handles broker transaction fees
+- ✅ **No optimization**: Simple proportional scaling, no solvers
 
-Where:
-- `Qᵢ` = current quantity of shares
-- `Pᵢ` = current market price
-- `Vᵢ` = current value
-- `ŵᵢ` = current portfolio weight
+**For detailed mathematical formulas and proofs, see**: [docs/ALGORITHM.md](docs/ALGORITHM.md)
 
-### Step 2: Deviation from Target
+---
 
-```
-Δwᵢ = ŵᵢ − wᵢ
-```
+## 👨‍💻 For Developers
 
-Where `wᵢ` is the target weight:
-- `Δwᵢ > 0` → overweight (sell)
-- `Δwᵢ < 0` → underweight (buy)
-
-### Step 3: Target Value in Currency
+### Project Structure
 
 ```
-ΔVᵢ = (wᵢ × V_total) − Vᵢ
+portfolio-rebalancer/
+├── app.py                    # Streamlit web application entry point
+├── webapp/                   # Web app modules
+│   ├── ui_helpers.py         # Table generation and formatting
+│   └── translations.py       # Multi-language support
+├── src/portfolio_rebalancer/ # Core package
+│   ├── models/               # Data models (Asset, Portfolio, Result)
+│   ├── engine/               # Rebalancing algorithm
+│   ├── policies/             # Rounding policies
+│   └── io/                   # Excel I/O (future)
+├── examples/                 # Usage examples
+│   ├── create_excel_template.py
+│   ├── my_rebalance.py
+│   ├── my_rebalance_excel.py
+│   └── example_*.py
+├── tests/                    # Test suite
+├── docs/                     # Documentation
+│   ├── ALGORITHM.md
+│   ├── DESIGN.md
+│   ├── BROKER_COMMISSIONS.md
+│   └── VARIABLES.md
+└── requirements.txt          # Dependencies
 ```
 
-### Step 4: Convert to Quantities
+### Running Tests
 
-```
-ΔQᵢ = ΔVᵢ / Pᵢ
-```
+Run the full test suite:
 
-### Step 5: Cash Flow with Taxation and Commissions
-
-For sales (`ΔQᵢ < 0`):
-```
-cash_in = |ΔQᵢ| × (Pᵢ − T × max(0, Pᵢ − PMCᵢ)) − C_sell
+```bash
+pytest
 ```
 
-Where:
-- `PMCᵢ` = average cost basis (purchase price)
-- `T` = tax rate (e.g., 0.26 for 26%)
-- `C_sell` = sell commission (fixed + percentage with min/max bounds)
-- Tax is applied only on capital gains: `(Pᵢ − PMCᵢ)`
+Run with coverage report:
 
-For purchases (`ΔQᵢ > 0`):
-```
-cash_out = ΔQᵢ × Pᵢ + C_buy
+```bash
+pytest --cov=portfolio_rebalancer --cov-report=html
 ```
 
-Where:
-- `C_buy` = buy commission (fixed + percentage with min/max bounds)
+Run specific test file:
 
-Total cash flow:
-```
-CF = Σ cash_in − Σ cash_out
+```bash
+pytest tests/test_engine.py
 ```
 
-### Step 6: Cash Flow Closure
+Run specific test:
 
-If `CF ≠ 0`, purchases are scaled proportionally:
-```
-ΔQᵢ_adjusted = ΔQᵢ × (1 + CF / Σ cash_out)    for ΔQᵢ > 0
-```
-
-**Important**: We use simple proportional scaling, not numerical optimization solvers.
-
-### Step 7: Post-Rebalancing Simulation
-
-```
-Qᵢ_new = Qᵢ + ΔQᵢ
-Vᵢ_new = Qᵢ_new × Pᵢ
-ŵᵢ_new = Vᵢ_new / V_total_new
+```bash
+pytest tests/test_engine.py::TestRebalancingEngine::test_cash_flow_approximates_zero
 ```
 
-### Step 8: Rounding (Optional)
+View HTML coverage report:
 
-If rounding policy is specified, round `ΔQᵢ` to integers and recompute cash flow and deviations.
+```bash
+open htmlcov/index.html  # On macOS
+# Or navigate to htmlcov/index.html in your browser
+```
 
-For detailed algorithm documentation, see [docs/ALGORITHM.md](docs/ALGORITHM.md).
+### Code Quality
+
+Format code with Black:
+
+```bash
+black src/ tests/ webapp/
+```
+
+Check style with Flake8:
+
+```bash
+flake8 src/ tests/ webapp/
+```
+
+Type check with mypy:
+
+```bash
+mypy src/
+```
+
+Run all quality checks:
+
+```bash
+black src/ tests/ webapp/ && flake8 src/ tests/ webapp/ && mypy src/ && pytest
+```
 
 ---
 
 ## 📚 Documentation
 
-- [ALGORITHM.md](docs/ALGORITHM.md) - Detailed algorithm with all formulas
-- [BROKER_COMMISSIONS.md](docs/BROKER_COMMISSIONS.md) - Broker commission guide with examples
-- [DESIGN.md](docs/DESIGN.md) - Design decisions and rationale
-- [CONTRIBUTING.md](docs/CONTRIBUTING.md) - Contribution guidelines
+- **[ALGORITHM.md](docs/ALGORITHM.md)** - Detailed algorithm with mathematical formulas
+- **[BROKER_COMMISSIONS.md](docs/BROKER_COMMISSIONS.md)** - Commission structures and examples
+- **[DESIGN.md](docs/DESIGN.md)** - Design decisions and architecture
+- **[VARIABLES.md](docs/VARIABLES.md)** - Variable nomenclature and definitions
+- **[HUGGINGFACE_DEPLOYMENT.md](HUGGINGFACE_DEPLOYMENT.md)** - Hugging Face Spaces deployment guide
+
+---
+
+## ⚖️ Licensing
+
+**Copyright © 2026 Jacopo Monti. All Rights Reserved.**
+
+This software is available under a **dual licensing model**. You can choose the license that best fits your needs:
+
+### 🆓 Open Source License: GNU AGPL v3.0
+
+**For non-commercial use**, this software is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**, the strongest copyleft license available.
+
+#### What AGPL-3.0 Means:
+
+**✅ You CAN**:
+- Use the software for personal, non-commercial purposes
+- Modify the software for your own use
+- Study how the software works
+- Share the software with others
+- Use it in educational and research contexts
+
+**📋 You MUST**:
+- **Release ALL source code** of any modifications you make
+- **Release ALL source code** of any software that includes this code
+- **Provide source code to users** even if they only access it over a network (e.g., web app)
+- License your entire work under AGPL-3.0 or compatible license
+- Preserve copyright and license notices
+- State changes you made to the code
+
+**❌ You CANNOT**:
+- Use for commercial purposes without a commercial license
+- Keep modifications proprietary
+- Incorporate into closed-source software
+- Distribute without providing complete source code
+
+#### Why AGPL-3.0?
+
+AGPL-3.0 is specifically designed for network applications like the Streamlit web app included in this repository. Unlike regular GPL, AGPL requires source code disclosure even when the software is used as a web service, ensuring that all improvements benefit the community.
+
+**📄 Full License**: See [LICENSE](LICENSE) for complete AGPL-3.0 terms.
+
+---
+
+### 💼 Commercial License
+
+**For commercial use**, you must obtain a separate commercial license.
+
+#### When You Need a Commercial License:
+
+A commercial license is **required** if you:
+
+- 🏢 Use the software in a **commercial product or service**
+- 💰 Offer portfolio rebalancing as a **paid service**
+- 🔒 Want to keep your **modifications proprietary**
+- 📦 Integrate into **commercial financial software**
+- 🌐 Run a **modified version as a web service** without releasing source code
+- 🏦 Use in **financial advisory platforms** or robo-advisors
+- 🏭 Deploy in **enterprise environments** for business purposes
+
+#### Commercial License Benefits:
+
+✅ **Freedom from AGPL obligations**:
+- No requirement to publish your source code
+- No requirement to release modifications
+- No requirement to license your software under AGPL
+- Keep your proprietary code private
+
+✅ **Commercial rights**:
+- Use in commercial products and services
+- Modify without disclosure requirements
+- Distribute as part of proprietary software
+- Sublicense rights (depending on tier)
+
+✅ **Additional benefits**:
+- Priority support (depending on tier)
+- Commercial documentation
+- Custom feature development (negotiable)
+- Legal protection and indemnification (Enterprise tier)
+
+#### Commercial License Tiers:
+
+1. **Startup License**: For companies < 10 employees or < $1M revenue
+2. **Business License**: For companies < 100 employees or < $10M revenue
+3. **Enterprise License**: For larger organizations with custom terms
+4. **OEM/Redistribution License**: For software vendors redistributing the software
+
+**📄 Full Details**: See [LICENSE-COMMERCIAL.md](LICENSE-COMMERCIAL.md) for complete commercial licensing information and pricing.
+
+---
+
+### 🤔 Which License Do I Need?
+
+#### Use **AGPL-3.0** (Free) if:
+- ✅ Personal, non-commercial use
+- ✅ Open source project (compliant with AGPL)
+- ✅ Educational or research purposes
+- ✅ You're willing to release ALL modifications as open source
+- ✅ You can provide source code to all users
+
+#### Get **Commercial License** (Paid) if:
+- ✅ Commercial product or service
+- ✅ Want to keep modifications proprietary
+- ✅ Cannot comply with AGPL source disclosure requirements
+- ✅ Need proprietary distribution rights
+- ✅ Require priority support or custom features
+
+**💡 Not sure?** Contact us and we'll help you determine which license applies to your use case.
+
+**🚀 Can I start with AGPL and switch later?** Yes! You can evaluate under AGPL-3.0 and purchase a commercial license before commercial deployment.
+
+---
+
+### 📞 Commercial License Inquiries
+
+To obtain a commercial license:
+
+**Jacopo Monti**  
+📧 Email: jacopo.monti.jm@gmail.com  
+🐙 GitHub: [@jacopo-monti](https://github.com/jacopo-monti)  
+🔗 Repository: [github.com/jacopo-monti/portfolio-rebalancer](https://github.com/jacopo-monti/portfolio-rebalancer)
+
+Please include:
+1. Company information (name, size, revenue)
+2. Use case details (how you plan to use the software)
+3. Desired license tier
+4. Any special requirements
+
+**Response time**: We aim to respond within 2-3 business days.
+
+---
+
+### ⚠️ Important License Notes
+
+**No Warranty**: Under both licenses, the software is provided "AS IS" without warranty. See license files for details.
+
+**No Financial Advice**: This is a calculation tool only. It does NOT provide financial, investment, tax, or legal advice. Consult qualified professionals.
+
+**Compliance**: Ensure you comply with the terms of whichever license you choose. Unauthorized commercial use violates copyright law.
 
 ---
 
 ## 📧 Contact
 
-For questions, suggestions, or bug reports: [Open an issue](https://github.com/jacopo-monti/portfolio-rebalancer/issues)
+**Author**: Jacopo Monti
+
+**Repository**: [github.com/jacopo-monti/portfolio-rebalancer](https://github.com/jacopo-monti/portfolio-rebalancer)
+
+**Issues**: [Open an issue](https://github.com/jacopo-monti/portfolio-rebalancer/issues) for bug reports or feature requests
+
+**Commercial Licensing**: jacopo.monti.jm@gmail.com
 
 ---
 
-## ©️ Copyright
+## 🙏 Contributing
 
-**Copyright © 2026 Jacopo Monti. All Rights Reserved.**
+We welcome contributions! Since this project is licensed under AGPL-3.0, any contributions must also be licensed under AGPL-3.0.
 
-This software and associated documentation are proprietary and confidential.
+By contributing, you agree that your contributions will be licensed under AGPL-3.0.
 
-Unauthorized copying, distribution, modification, public display, or public performance of this software, via any medium, is strictly prohibited without explicit written permission from the copyright holder.
-
-For licensing inquiries, please contact the author.
+For contribution guidelines, see issues or contact the maintainer.

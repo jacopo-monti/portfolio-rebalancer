@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "portfolio-rebalancer"
-version = "0.1.1"
+version = "0.3.1"
 description = "A deterministic tool for portfolio rebalancing with tax-aware calculations"
 readme = "README.md"
 requires-python = ">=3.8"
-license = {text = "Proprietary"}
+license = {text = "Dual License: AGPL-3.0 (open source) OR Commercial (see LICENSE-COMMERCIAL.md)"}
 authors = [
     {name = "Jacopo Monti", email = "jacopo.monti.jm@gmail.com"},
 ]
@@ -19,11 +19,16 @@ keywords = [
     "investment",
     "tax-aware",
     "deterministic",
+    "agpl",
+    "open-source",
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Financial and Insurance Industry",
     "Intended Audience :: Science/Research",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+    "License :: Other/Proprietary License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
@@ -31,6 +36,10 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Office/Business :: Financial :: Investment",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Operating System :: OS Independent",
+    "Environment :: Web Environment",
+    "Framework :: Streamlit",
 ]
 
 dependencies = [
@@ -52,6 +61,8 @@ dev = [
 Homepage = "https://github.com/jacopo-monti/portfolio-rebalancer"
 Repository = "https://github.com/jacopo-monti/portfolio-rebalancer"
 Issues = "https://github.com/jacopo-monti/portfolio-rebalancer/issues"
+"Commercial License" = "https://github.com/jacopo-monti/portfolio-rebalancer/blob/main/LICENSE-COMMERCIAL.md"
+Documentation = "https://github.com/jacopo-monti/portfolio-rebalancer/tree/main/docs"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
