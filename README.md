@@ -1,7 +1,8 @@
 # Portfolio Rebalancer
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![License](https://img.shields.io/badge/license-Proprietary-red.svg)](LICENSE)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
+[![Commercial License](https://img.shields.io/badge/License-Commercial-orange.svg)](LICENSE-COMMERCIAL.md)
 
 A deterministic portfolio rebalancing tool with tax-aware calculations, broker commission support, and an intuitive web interface.
 
@@ -43,7 +44,8 @@ This software is provided "AS IS" without warranty of any kind. The authors make
   - [Running Tests](#running-tests)
   - [Code Quality](#code-quality)
 - [Documentation](#-documentation)
-- [License](#-license)
+- [Licensing](#-licensing)
+- [Contact](#-contact)
 
 ---
 
@@ -417,6 +419,145 @@ black src/ tests/ webapp/ && flake8 src/ tests/ webapp/ && mypy src/ && pytest
 
 ---
 
+## ⚖️ Licensing
+
+**Copyright © 2026 Jacopo Monti. All Rights Reserved.**
+
+This software is available under a **dual licensing model**. You can choose the license that best fits your needs:
+
+### 🆓 Open Source License: GNU AGPL v3.0
+
+**For non-commercial use**, this software is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**, the strongest copyleft license available.
+
+#### What AGPL-3.0 Means:
+
+**✅ You CAN**:
+- Use the software for personal, non-commercial purposes
+- Modify the software for your own use
+- Study how the software works
+- Share the software with others
+- Use it in educational and research contexts
+
+**📋 You MUST**:
+- **Release ALL source code** of any modifications you make
+- **Release ALL source code** of any software that includes this code
+- **Provide source code to users** even if they only access it over a network (e.g., web app)
+- License your entire work under AGPL-3.0 or compatible license
+- Preserve copyright and license notices
+- State changes you made to the code
+
+**❌ You CANNOT**:
+- Use for commercial purposes without a commercial license
+- Keep modifications proprietary
+- Incorporate into closed-source software
+- Distribute without providing complete source code
+
+#### Why AGPL-3.0?
+
+AGPL-3.0 is specifically designed for network applications like the Streamlit web app included in this repository. Unlike regular GPL, AGPL requires source code disclosure even when the software is used as a web service, ensuring that all improvements benefit the community.
+
+**📄 Full License**: See [LICENSE](LICENSE) for complete AGPL-3.0 terms.
+
+---
+
+### 💼 Commercial License
+
+**For commercial use**, you must obtain a separate commercial license.
+
+#### When You Need a Commercial License:
+
+A commercial license is **required** if you:
+
+- 🏢 Use the software in a **commercial product or service**
+- 💰 Offer portfolio rebalancing as a **paid service**
+- 🔒 Want to keep your **modifications proprietary**
+- 📦 Integrate into **commercial financial software**
+- 🌐 Run a **modified version as a web service** without releasing source code
+- 🏦 Use in **financial advisory platforms** or robo-advisors
+- 🏭 Deploy in **enterprise environments** for business purposes
+
+#### Commercial License Benefits:
+
+✅ **Freedom from AGPL obligations**:
+- No requirement to publish your source code
+- No requirement to release modifications
+- No requirement to license your software under AGPL
+- Keep your proprietary code private
+
+✅ **Commercial rights**:
+- Use in commercial products and services
+- Modify without disclosure requirements
+- Distribute as part of proprietary software
+- Sublicense rights (depending on tier)
+
+✅ **Additional benefits**:
+- Priority support (depending on tier)
+- Commercial documentation
+- Custom feature development (negotiable)
+- Legal protection and indemnification (Enterprise tier)
+
+#### Commercial License Tiers:
+
+1. **Startup License**: For companies < 10 employees or < $1M revenue
+2. **Business License**: For companies < 100 employees or < $10M revenue
+3. **Enterprise License**: For larger organizations with custom terms
+4. **OEM/Redistribution License**: For software vendors redistributing the software
+
+**📄 Full Details**: See [LICENSE-COMMERCIAL.md](LICENSE-COMMERCIAL.md) for complete commercial licensing information and pricing.
+
+---
+
+### 🤔 Which License Do I Need?
+
+#### Use **AGPL-3.0** (Free) if:
+- ✅ Personal, non-commercial use
+- ✅ Open source project (compliant with AGPL)
+- ✅ Educational or research purposes
+- ✅ You're willing to release ALL modifications as open source
+- ✅ You can provide source code to all users
+
+#### Get **Commercial License** (Paid) if:
+- ✅ Commercial product or service
+- ✅ Want to keep modifications proprietary
+- ✅ Cannot comply with AGPL source disclosure requirements
+- ✅ Need proprietary distribution rights
+- ✅ Require priority support or custom features
+
+**💡 Not sure?** Contact us and we'll help you determine which license applies to your use case.
+
+**🚀 Can I start with AGPL and switch later?** Yes! You can evaluate under AGPL-3.0 and purchase a commercial license before commercial deployment.
+
+---
+
+### 📞 Commercial License Inquiries
+
+To obtain a commercial license:
+
+**Jacopo Monti**  
+📧 Email: jacopo.monti.jm@gmail.com  
+🐙 GitHub: [@jacopo-monti](https://github.com/jacopo-monti)  
+🔗 Repository: [github.com/jacopo-monti/portfolio-rebalancer](https://github.com/jacopo-monti/portfolio-rebalancer)
+
+Please include:
+1. Company information (name, size, revenue)
+2. Use case details (how you plan to use the software)
+3. Desired license tier
+4. Any special requirements
+
+**Response time**: We aim to respond within 2-3 business days.
+
+---
+
+### ⚠️ Important License Notes
+
+**No Warranty**: Under both licenses, the software is provided "AS IS" without warranty. See license files for details.
+
+**No Financial Advice**: This is a calculation tool only. It does NOT provide financial, investment, tax, or legal advice. Consult qualified professionals.
+
+**Compliance**: Ensure you comply with the terms of whichever license you choose. Unauthorized commercial use violates copyright law.
+
+---
+
 ## 📧 Contact
 
 **Author**: Jacopo Monti
@@ -425,14 +566,14 @@ black src/ tests/ webapp/ && flake8 src/ tests/ webapp/ && mypy src/ && pytest
 
 **Issues**: [Open an issue](https://github.com/jacopo-monti/portfolio-rebalancer/issues) for bug reports or feature requests
 
+**Commercial Licensing**: jacopo.monti.jm@gmail.com
+
 ---
 
-## 📄 License
+## 🙏 Contributing
 
-**Copyright © 2026 Jacopo Monti. All Rights Reserved.**
+We welcome contributions! Since this project is licensed under AGPL-3.0, any contributions must also be licensed under AGPL-3.0.
 
-This software is proprietary and confidential. See [LICENSE](LICENSE) for details.
+By contributing, you agree that your contributions will be licensed under AGPL-3.0.
 
-Unauthorized copying, distribution, or modification is strictly prohibited.
-
-For licensing inquiries, contact the author.
+For contribution guidelines, see issues or contact the maintainer.
