@@ -35,10 +35,12 @@ if src_dir.exists() and str(src_dir) not in sys.path:
 # ============================================================================
 import streamlit as st
 import pandas as pd
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List, Dict, Any
+import hashlib
+import json
 
 # Import core rebalancing logic
-from portfolio_rebalancer.models import Portfolio
+from portfolio_rebalancer.models import Portfolio, Asset
 from portfolio_rebalancer.engine import RebalancingEngine
 from portfolio_rebalancer.policies.rounding import RoundingPolicy
 
@@ -56,7 +58,137 @@ from webapp.ui_helpers import (
 )
 
 # Import translation system
-from webapp.translations import get_text, get_available_languages
+from webapp.translations import get_available_languages, TRANSLATIONS
+
+
+# ============================================================================
+# CACHED FUNCTIONS FOR PERFORMANCE
+# ============================================================================
+
+@st.cache_data(ttl=300, show_spinner=False)
+def get_text_cached(key: str, lang: str = "en") -> str:
+    """Cached translation lookup to avoid repeated dictionary access.
+    
+    Args:
+        key: Translation key
+        lang: Language code
+        
+    Returns:
+        Translated text
+    """
+    if lang not in TRANSLATIONS:
+        lang = 'en'
+    return TRANSLATIONS[lang].get(key, key)
+
+
+def get_text(key: str, **kwargs) -> str:
+    """Get translated text with formatting support.
+    
+    Args:
+        key: Translation key
+        **kwargs: Format arguments
+        
+    Returns:
+        Translated and formatted text
+    """
+    lang = st.session_state.get('language', 'en')
+    text = get_text_cached(key, lang)
+    
+    if kwargs:
+        try:
+            text = text.format(**kwargs)
+        except (KeyError, IndexError):
+            pass
+    
+    return text
+
+
+def _hash_assets_data(assets_data: List[Dict[str, Any]]) -> str:
+    """Create a stable hash of assets data for caching.
+    
+    Args:
+        assets_data: List of asset dictionaries
+        
+    Returns:
+        Hash string
+    """
+    # Sort keys for stable hashing
+    stable_repr = json.dumps(assets_data, sort_keys=True)
+    return hashlib.md5(stable_repr.encode()).hexdigest()
+
+
+@st.cache_data(show_spinner=False)
+def cached_assets_to_dataframe(assets_hash: str, assets_data: List[Dict[str, Any]]) -> pd.DataFrame:
+    """Cached conversion of assets to DataFrame.
+    
+    Args:
+        assets_hash: Hash of assets data for cache key
+        assets_data: List of asset dictionaries
+        
+    Returns:
+        DataFrame with asset data
+    """
+    return pd.DataFrame(assets_data)
+
+
+@st.cache_data(show_spinner=False)
+def cached_dataframe_to_assets(df_hash: str, df: pd.DataFrame) -> List[Asset]:
+    """Cached conversion of DataFrame to Asset objects.
+    
+    Args:
+        df_hash: Hash of DataFrame for cache key
+        df: DataFrame with asset data
+        
+    Returns:
+        List of Asset objects
+    """
+    return dataframe_to_assets(df)
+
+
+@st.cache_data(show_spinner="Calculating optimal rebalancing...")
+def cached_rebalance_portfolio(
+    assets_hash: str,
+    cash_available: float,
+    portfolio_name: str,
+    rounding_policy_str: Optional[str]
+) -> Any:
+    """Cached portfolio rebalancing computation.
+    
+    This is the most expensive operation, so caching provides significant
+    performance improvement, especially on Hugging Face Spaces.
+    
+    Args:
+        assets_hash: Hash of assets data for cache key
+        cash_available: Available cash
+        portfolio_name: Portfolio name
+        rounding_policy_str: Rounding policy name or None
+        
+    Returns:
+        RebalancingResult object
+    """
+    # Reconstruct portfolio from session state
+    # Note: We use the hash as cache key but need to get actual data from session state
+    df = cached_assets_to_dataframe(assets_hash, st.session_state.assets_data)
+    df_hash = _hash_assets_data(st.session_state.assets_data)
+    assets = cached_dataframe_to_assets(df_hash, df)
+    
+    portfolio = Portfolio(
+        assets=assets,
+        cash_available=cash_available,
+        name=portfolio_name,
+    )
+    
+    rounding_policy = None
+    if rounding_policy_str:
+        policy_map = {
+            "FLOOR": RoundingPolicy.FLOOR,
+            "ROUND": RoundingPolicy.ROUND,
+            "CEIL": RoundingPolicy.CEIL,
+        }
+        rounding_policy = policy_map.get(rounding_policy_str)
+    
+    engine = RebalancingEngine(rounding_policy=rounding_policy)
+    return engine.rebalance(portfolio)
 
 
 # ============================================================================
@@ -188,6 +320,8 @@ def add_asset_to_portfolio(asset_data: dict) -> None:
         asset_data: Dictionary containing asset data
     """
     st.session_state.assets_data.append(asset_data)
+    # Invalidate rebalancing result cache
+    st.session_state.rebalancing_result = None
 
 
 def update_asset_in_portfolio(index: int, asset_data: dict) -> None:
@@ -198,6 +332,8 @@ def update_asset_in_portfolio(index: int, asset_data: dict) -> None:
         asset_data: Dictionary containing updated asset data
     """
     st.session_state.assets_data[index] = asset_data
+    # Invalidate rebalancing result cache
+    st.session_state.rebalancing_result = None
 
 
 def delete_asset_from_portfolio(index: int) -> None:
@@ -207,6 +343,8 @@ def delete_asset_from_portfolio(index: int) -> None:
         index: Index of asset to delete
     """
     st.session_state.assets_data.pop(index)
+    # Invalidate rebalancing result cache
+    st.session_state.rebalancing_result = None
 
 
 def check_duplicate_symbol(symbol: str, exclude_index: Optional[int] = None) -> bool:
@@ -234,7 +372,8 @@ def get_portfolio_validation_status() -> Tuple[bool, str]:
     if len(st.session_state.assets_data) == 0:
         return False, "Portfolio is empty. Add at least one asset."
     
-    df = assets_to_dataframe(st.session_state.assets_data)
+    assets_hash = _hash_assets_data(st.session_state.assets_data)
+    df = cached_assets_to_dataframe(assets_hash, st.session_state.assets_data)
     return validate_assets_data(df)
 
 
@@ -279,7 +418,7 @@ with col_lang:
         index=current_lang_index,
         key="language_selector"
     )
-    # Update language if changed
+    # Update language if changed (only rerun for language change)
     if selected_lang != st.session_state.language:
         st.session_state.language = selected_lang
         st.rerun()
@@ -626,7 +765,8 @@ with tab1:
         # Portfolio summary
         st.subheader(get_text("portfolio_summary_title"))
         
-        df = assets_to_dataframe(st.session_state.assets_data)
+        assets_hash = _hash_assets_data(st.session_state.assets_data)
+        df = cached_assets_to_dataframe(assets_hash, st.session_state.assets_data)
         is_valid, error_msg = validate_assets_data(df)
         
         if is_valid:
@@ -653,6 +793,7 @@ with tab1:
         if st.button(get_text("reset_button"), key="reset_button", help=get_text("reset_button_help")):
             st.session_state.assets_data = create_default_assets()
             st.session_state.editing_asset_index = None
+            st.session_state.rebalancing_result = None
             st.rerun()
 
 
@@ -672,33 +813,23 @@ with tab2:
         st.info(get_text("fix_portfolio_info"))
     
     if st.button(get_text("run_analysis_button"), type="primary", use_container_width=True, key="run_analysis_button", disabled=not portfolio_valid):
-        df = assets_to_dataframe(st.session_state.assets_data)
+        assets_hash = _hash_assets_data(st.session_state.assets_data)
+        df = cached_assets_to_dataframe(assets_hash, st.session_state.assets_data)
         is_valid, error_msg = validate_assets_data(df)
         
         if not is_valid:
             st.error(f"Cannot run analysis: {error_msg}")
         else:
             try:
-                assets = dataframe_to_assets(df)
-                portfolio = Portfolio(
-                    assets=assets,
-                    cash_available=st.session_state.cash_available_input,
-                    name=st.session_state.portfolio_name_input,
+                # Use cached rebalancing computation
+                rounding_policy_str = st.session_state.rounding_policy_radio if st.session_state.apply_rounding_checkbox else None
+                
+                result = cached_rebalance_portfolio(
+                    assets_hash,
+                    st.session_state.cash_available_input,
+                    st.session_state.portfolio_name_input,
+                    rounding_policy_str
                 )
-                
-                rounding_policy = None
-                if st.session_state.apply_rounding_checkbox:
-                    policy_map = {
-                        "FLOOR": RoundingPolicy.FLOOR,
-                        "ROUND": RoundingPolicy.ROUND,
-                        "CEIL": RoundingPolicy.CEIL,
-                    }
-                    rounding_policy = policy_map[st.session_state.rounding_policy_radio]
-                
-                engine = RebalancingEngine(rounding_policy=rounding_policy)
-                
-                with st.spinner(get_text("calculating_message")):
-                    result = engine.rebalance(portfolio)
                 
                 st.session_state.rebalancing_result = result
                 st.success(get_text("calculation_complete"))
@@ -709,7 +840,8 @@ with tab2:
     
     if st.session_state.rebalancing_result is not None:
         # Validate portfolio before displaying results to prevent crashes
-        df = assets_to_dataframe(st.session_state.assets_data)
+        assets_hash = _hash_assets_data(st.session_state.assets_data)
+        df = cached_assets_to_dataframe(assets_hash, st.session_state.assets_data)
         is_valid, error_msg = validate_assets_data(df)
         
         if not is_valid:
@@ -726,7 +858,8 @@ with tab2:
                 st.subheader(get_text("current_state_title"))
                 st.markdown(get_text("current_state_description"))
                 
-                assets = dataframe_to_assets(df)
+                df_hash = _hash_assets_data(st.session_state.assets_data)
+                assets = cached_dataframe_to_assets(df_hash, df)
                 portfolio = Portfolio(
                     assets=assets,
                     cash_available=st.session_state.cash_available_input,
