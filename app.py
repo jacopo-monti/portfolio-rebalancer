@@ -14,6 +14,25 @@ Requirements:
     - portfolio_rebalancer (this package)
 """
 
+# ============================================================================
+# PYTHON PATH SETUP FOR HUGGING FACE SPACES
+# ============================================================================
+# Add src/ directory to Python path to enable imports of portfolio_rebalancer
+# This is necessary for Hugging Face Spaces which doesn't support editable installs
+import sys
+from pathlib import Path
+
+# Get the directory containing this script
+app_dir = Path(__file__).parent
+src_dir = app_dir / "src"
+
+# Add src/ to Python path if it exists and is not already included
+if src_dir.exists() and str(src_dir) not in sys.path:
+    sys.path.insert(0, str(src_dir))
+
+# ============================================================================
+# IMPORTS
+# ============================================================================
 import streamlit as st
 import pandas as pd
 from typing import Optional, Tuple
