@@ -8,7 +8,3 @@ pandas>=1.5.0
 
 # Web application framework
 streamlit>=1.28.0
-
-# Install the portfolio-rebalancer package from source
-# This will install all modules from src/portfolio_rebalancer
-.
