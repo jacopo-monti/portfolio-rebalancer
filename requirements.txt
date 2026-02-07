@@ -2,6 +2,10 @@
 # Compatible with Python >=3.8
 # Optimized for Hugging Face Spaces deployment
 
+# Build system dependencies
+setuptools>=65.0
+wheel
+
 # Data processing
 openpyxl>=3.0.0
 pandas>=1.5.0
@@ -11,4 +15,5 @@ streamlit>=1.28.0
 
 # Install the portfolio-rebalancer package from source
 # This will install all modules from src/portfolio_rebalancer
-.
+# Using editable mode to ensure proper import resolution
+-e .
