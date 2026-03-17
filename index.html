@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portfolio Rebalancer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0d0f14; --surface:#13161e; --surface2:#1a1e2a;
+  --border:#252a38; --border-light:#2e3448;
+  --accent:#4fffb0; --accent2:#7b6cff;
+  --accent-dim:rgba(79,255,176,0.12); --accent2-dim:rgba(123,108,255,0.12);
+  --danger:#ff5f7e; --danger-dim:rgba(255,95,126,0.12);
+  --warning:#ffb547; --warning-dim:rgba(255,181,71,0.1);
+  --text:#e8ecf4; --text-muted:#6b738a; --text-dim:#9aa0b8;
+  --green:#4fffb0; --red:#ff5f7e; --yellow:#ffb547;
+  --radius:10px; --radius-sm:6px;
+  --mono:'DM Mono',monospace; --sans:'Syne',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:14px;line-height:1.6;min-height:100vh}
+.header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 32px;display:flex;align-items:center;justify-content:space-between;height:60px;position:sticky;top:0;z-index:100}
+.logo{display:flex;align-items:center;gap:10px;font-family:var(--sans);font-weight:800;font-size:16px;letter-spacing:-0.3px}
+.logo-icon{width:32px;height:32px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px}
+.lang-toggle{display:flex;border:1px solid var(--border-light);border-radius:6px;overflow:hidden}
+.lang-btn{padding:5px 12px;background:none;border:none;color:var(--text-muted);cursor:pointer;font-family:var(--mono);font-size:12px;transition:all .15s}
+.lang-btn.active{background:var(--accent-dim);color:var(--accent)}
+.tab-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 32px;display:flex}
+.tab-btn{padding:14px 20px;background:none;border:none;border-bottom:2px solid transparent;color:var(--text-muted);cursor:pointer;font-family:var(--mono);font-size:13px;transition:all .2s;white-space:nowrap}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-btn:hover:not(.active){color:var(--text-dim)}
+.main{max-width:1100px;margin:0 auto;padding:32px}
+.tab-panel{display:none}.tab-panel.active{display:block}
+.section{margin-bottom:28px}
+.section-title{font-family:var(--sans);font-weight:700;font-size:18px;margin-bottom:4px;letter-spacing:-0.2px}
+.section-desc{color:var(--text-muted);font-size:12px;margin-bottom:20px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
+.card+.card{margin-top:12px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.grid-4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px}
+.form-group{display:flex;flex-direction:column;gap:6px}
+.form-label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px}
+.form-input,.form-select{background:var(--bg);border:1px solid var(--border-light);border-radius:var(--radius-sm);color:var(--text);font-family:var(--mono);font-size:13px;padding:9px 12px;transition:border-color .2s;width:100%}
+.form-input:focus,.form-select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-dim)}
+.form-input::placeholder{color:var(--text-muted)}
+.form-select{cursor:pointer}
+.form-select option{background:var(--surface2)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 18px;border-radius:var(--radius-sm);border:none;cursor:pointer;font-family:var(--mono);font-size:13px;font-weight:500;transition:all .15s;white-space:nowrap}
+.btn-primary{background:var(--accent);color:#0a0c10}
+.btn-primary:hover{filter:brightness(1.1)}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed;filter:none}
+.btn-secondary{background:var(--surface2);color:var(--text-dim);border:1px solid var(--border-light)}
+.btn-secondary:hover{border-color:var(--text-muted);color:var(--text)}
+.btn-danger{background:var(--danger-dim);color:var(--danger);border:1px solid rgba(255,95,126,.2)}
+.btn-danger:hover{background:rgba(255,95,126,.2)}
+.btn-sm{padding:5px 12px;font-size:12px}
+.btn-full{width:100%}
+.btn-large{padding:14px 28px;font-size:15px;font-family:var(--sans);font-weight:700;letter-spacing:-.2px}
+.asset-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;display:flex;align-items:center;gap:16px;transition:border-color .2s}
+.asset-card:hover{border-color:var(--border-light)}
+.asset-card+.asset-card{margin-top:8px}
+.asset-symbol{font-family:var(--sans);font-weight:700;font-size:16px;min-width:70px;color:var(--accent)}
+.asset-meta{flex:1;display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.asset-meta-item{display:flex;flex-direction:column;gap:2px}
+.asset-meta-label{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.6px}
+.asset-meta-value{font-size:13px;color:var(--text)}
+.asset-actions{display:flex;gap:6px}
+.metrics-row{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px}
+.metric-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px}
+.metric-label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:6px}
+.metric-value{font-family:var(--sans);font-weight:700;font-size:22px;letter-spacing:-.5px}
+.metric-value.green{color:var(--green)}.metric-value.red{color:var(--red)}.metric-value.accent2{color:var(--accent2)}
+.table-wrap{overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse}
+thead th{background:var(--surface2);padding:10px 14px;text-align:left;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.7px;font-weight:500;white-space:nowrap}
+tbody tr{border-top:1px solid var(--border);transition:background .1s}
+tbody tr:hover{background:var(--surface2)}
+tbody td{padding:10px 14px;font-size:13px;white-space:nowrap}
+.tag-buy{background:var(--accent-dim);color:var(--accent);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
+.tag-sell{background:var(--danger-dim);color:var(--danger);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
+.tag-hold{background:rgba(107,115,138,.15);color:var(--text-muted);padding:2px 8px;border-radius:4px;font-size:11px}
+.alert{display:flex;align-items:flex-start;gap:10px;padding:12px 16px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:16px}
+.alert-success{background:var(--accent-dim);border:1px solid rgba(79,255,176,.2);color:var(--accent)}
+.alert-error{background:var(--danger-dim);border:1px solid rgba(255,95,126,.2);color:var(--danger)}
+.alert-warning{background:var(--warning-dim);border:1px solid rgba(255,181,71,.2);color:var(--warning)}
+.alert-info{background:var(--accent2-dim);border:1px solid rgba(123,108,255,.2);color:#a09aff}
+.collapse-header{display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:12px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:12px;color:var(--text-dim);transition:all .15s;user-select:none}
+.collapse-header:hover{border-color:var(--border-light);color:var(--text)}
+.collapse-header .arrow{transition:transform .2s}
+.collapse-header.open .arrow{transform:rotate(180deg)}
+.collapse-body{display:none;padding:16px;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius-sm) var(--radius-sm);background:var(--bg)}
+.collapse-body.open{display:block}
+.divider{border:none;border-top:1px solid var(--border);margin:24px 0}
+.checkbox-wrap{display:flex;align-items:center;gap:10px;cursor:pointer}
+.checkbox-wrap input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
+.checkbox-wrap label{cursor:pointer;font-size:13px}
+.radio-group{display:flex;gap:8px}
+.radio-btn{padding:7px 16px;border:1px solid var(--border-light);border-radius:var(--radius-sm);cursor:pointer;font-family:var(--mono);font-size:12px;color:var(--text-muted);background:none;transition:all .15s}
+.radio-btn.active{background:var(--accent-dim);color:var(--accent);border-color:rgba(79,255,176,.3)}
+.summary-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}
+.summary-row:last-child{border-bottom:none}
+.summary-key{color:var(--text-muted);font-size:13px}
+.summary-val{font-size:13px;font-weight:500}
+.dev-ok{color:var(--green)}.dev-warn{color:var(--yellow)}.dev-bad{color:var(--red)}
+.empty-state{text-align:center;padding:48px 24px;color:var(--text-muted)}
+.empty-state .icon{font-size:36px;margin-bottom:12px;opacity:.5}
+.result-title{font-family:var(--sans);font-weight:700;font-size:15px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.sub-title{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;margin-top:20px}
+#toast{position:fixed;bottom:32px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface);border:1px solid var(--border-light);border-radius:var(--radius);padding:12px 20px;font-size:13px;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast.success{border-color:rgba(79,255,176,.4);color:var(--accent)}
+#toast.error{border-color:rgba(255,95,126,.4);color:var(--danger)}
+.hidden{display:none!important}
+.mb-8{margin-bottom:8px}.mb-12{margin-bottom:12px}.mb-16{margin-bottom:16px}.mb-24{margin-bottom:24px}
+.mt-12{margin-top:12px}
+.text-muted{color:var(--text-muted)}.text-dim{color:var(--text-dim)}.text-accent{color:var(--accent)}
+.text-sm{font-size:12px}.text-xs{font-size:11px}
+.flex{display:flex}.gap-8{gap:8px}
+@media(max-width:768px){
+  .main{padding:16px}.header{padding:0 16px}.tab-bar{padding:0 16px;overflow-x:auto}
+  .grid-2,.grid-3,.grid-4{grid-template-columns:1fr}
+  .asset-meta{grid-template-columns:1fr 1fr}.metrics-row{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="logo">
+    <div class="logo-icon">📊</div>
+    <span id="h-title">Portfolio Rebalancer</span>
+  </div>
+  <div class="lang-toggle">
+    <button class="lang-btn active" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" onclick="setLang('it')">IT</button>
+  </div>
+</header>
+
+<nav class="tab-bar">
+  <button class="tab-btn active" onclick="showTab('tab-portfolio')" id="tabn-portfolio">🎯 Target &amp; Portfolio</button>
+  <button class="tab-btn" onclick="showTab('tab-analysis')" id="tabn-analysis">📈 Analysis</button>
+  <button class="tab-btn" onclick="showTab('tab-settings')" id="tabn-settings">⚙️ Settings</button>
+</nav>
+
+<div class="main">
+
+<!-- ===== TAB 1: PORTFOLIO ===== -->
+<div id="tab-portfolio" class="tab-panel active">
+  <div class="section">
+    <div class="section-title" id="t-config-title">Portfolio Configuration</div>
+    <div class="section-desc" id="t-config-desc">Build your portfolio by adding assets. Define each asset's current holdings and target allocation.</div>
+    <div class="card">
+      <div class="grid-2">
+        <div class="form-group"><label class="form-label" id="l-pname">Portfolio Name</label><input class="form-input" id="portfolioName" value="My Portfolio"></div>
+        <div class="form-group"><label class="form-label" id="l-cash">Available Cash to Deploy (€)</label><input class="form-input" id="cashAvailable" type="number" value="0" min="0" step="100"></div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <div class="section">
+    <div class="section-title" id="form-title">Add Asset</div>
+    <div class="card">
+      <div class="sub-title" id="l-basic-info">Basic Information</div>
+      <div class="grid-3 mb-16">
+        <div class="form-group"><label class="form-label" id="l-sym">Asset Symbol/Name *</label><input class="form-input" id="f-symbol" placeholder="e.g. VWCE"></div>
+        <div class="form-group"><label class="form-label" id="l-qty">Quantity (shares) *</label><input class="form-input" id="f-quantity" type="number" value="0" min="0" step="0.0001"></div>
+        <div class="form-group"><label class="form-label" id="l-price">Current Price (€) *</label><input class="form-input" id="f-price" type="number" value="100" min="0.01" step="0.01"></div>
+      </div>
+      <div class="grid-3 mb-16">
+        <div class="form-group"><label class="form-label" id="l-avg">Average Cost (€) *</label><input class="form-input" id="f-avgcost" type="number" value="100" min="0" step="0.01"></div>
+        <div class="form-group"><label class="form-label" id="l-tax">Tax Rate (%) *</label><input class="form-input" id="f-taxrate" type="number" value="26" min="0" max="100" step="0.1"></div>
+        <div class="form-group"><label class="form-label" id="l-tgt">Target Weight (%) *</label><input class="form-input" id="f-targetweight" type="number" value="0" min="0" max="100" step="0.1"></div>
+      </div>
+
+      <div class="mb-16">
+        <div class="collapse-header" onclick="toggleCollapse('comm-collapse')">
+          <span id="l-comm-sec">📋 Commission Settings (Optional)</span><span class="arrow">▼</span>
+        </div>
+        <div class="collapse-body" id="comm-collapse">
+          <div class="sub-title" id="l-buy-comm">Buy Commissions</div>
+          <div class="grid-4 mb-16">
+            <div class="form-group"><label class="form-label" id="l-bf">Fixed Fee (€)</label><input class="form-input" id="f-buy-fixed" type="number" value="0" min="0" step="0.01"></div>
+            <div class="form-group"><label class="form-label" id="l-bp">% Fee</label><input class="form-input" id="f-buy-pct" type="number" value="0" min="0" max="100" step="0.001"></div>
+            <div class="form-group"><label class="form-label" id="l-bm">Min Fee (€)</label><input class="form-input" id="f-buy-min" type="number" value="0" min="0" step="0.01"></div>
+            <div class="form-group"><label class="form-label" id="l-bx">Max Fee (€)</label><input class="form-input" id="f-buy-max" type="number" value="0" min="0" step="0.01"></div>
+          </div>
+          <div class="sub-title" id="l-sell-comm">Sell Commissions</div>
+          <div class="grid-4">
+            <div class="form-group"><label class="form-label" id="l-sf">Fixed Fee (€)</label><input class="form-input" id="f-sell-fixed" type="number" value="0" min="0" step="0.01"></div>
+            <div class="form-group"><label class="form-label" id="l-sp">% Fee</label><input class="form-input" id="f-sell-pct" type="number" value="0" min="0" max="100" step="0.001"></div>
+            <div class="form-group"><label class="form-label" id="l-sm">Min Fee (€)</label><input class="form-input" id="f-sell-min" type="number" value="0" min="0" step="0.01"></div>
+            <div class="form-group"><label class="form-label" id="l-sx">Max Fee (€)</label><input class="form-input" id="f-sell-max" type="number" value="0" min="0" step="0.01"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="form-alert" class="hidden mb-12"></div>
+      <div class="flex gap-8">
+        <button class="btn btn-primary" id="addAssetBtn" onclick="submitAssetForm()">➕ Add Asset</button>
+        <button class="btn btn-secondary hidden" id="cancelEditBtn" onclick="cancelEdit()">✕ Cancel</button>
+        <button class="btn btn-secondary" onclick="resetPortfolio()" style="margin-left:auto">🔄 Reset Example</button>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <div class="section">
+    <div class="section-title" id="t-cur-portfolio">Current Portfolio Assets</div>
+    <div id="assetList"></div>
+    <div id="portfolioSummary" class="card hidden" style="margin-top:16px">
+      <div class="result-title" id="t-port-summary">Portfolio Summary</div>
+      <div id="summaryValidation" class="mb-12"></div>
+      <div class="metrics-row" id="summaryMetrics"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB 2: ANALYSIS ===== -->
+<div id="tab-analysis" class="tab-panel">
+  <div class="section">
+    <div class="section-title" id="t-analysis-title">Rebalancing Analysis</div>
+    <div class="section-desc" id="t-analysis-desc">Run the rebalancing algorithm to see what operations are needed.</div>
+  </div>
+  <div id="analysisWarning" class="hidden mb-16"></div>
+  <div style="margin-bottom:24px">
+    <button class="btn btn-primary btn-full btn-large" id="runBtn" onclick="runAnalysis()">▶ Run Rebalancing Analysis</button>
+  </div>
+  <div id="analysisResults" class="hidden">
+    <div class="section mb-24">
+      <div class="result-title" id="t-cur-state">📊 Current Portfolio State</div>
+      <div class="section-desc" id="t-cur-state-desc">Your portfolio before rebalancing:</div>
+      <div class="grid-2 mb-16" id="beforeMetrics"></div>
+      <div class="table-wrap"><table id="currentStateTable"><thead></thead><tbody></tbody></table></div>
+    </div>
+    <hr class="divider">
+    <div class="section mb-24">
+      <div class="result-title" id="t-ops-title">🔄 Required Operations</div>
+      <div class="section-desc" id="t-ops-desc">Buy and sell operations needed to reach target allocation:</div>
+      <div class="table-wrap"><table id="opsTable"><thead></thead><tbody></tbody></table></div>
+    </div>
+    <hr class="divider">
+    <div class="section mb-24">
+      <div class="result-title" id="t-cf-title">💰 Cash Flow Summary</div>
+      <div class="metrics-row" id="cashflowMetrics"></div>
+      <div id="cashflowAlert"></div>
+    </div>
+    <hr class="divider">
+    <div class="section mb-24">
+      <div class="result-title" id="t-cost-title">💳 Rebalancing Cost Breakdown</div>
+      <div class="grid-2">
+        <div class="card"><div class="sub-title" id="t-tx-fees">Transaction Fees</div><div id="commBreakdown"></div></div>
+        <div class="card"><div class="sub-title" id="t-cg-tax">Capital Gains Tax</div><div id="taxBreakdown"></div></div>
+      </div>
+      <div id="costNote" class="alert alert-info mt-12" style="margin-top:12px"></div>
+    </div>
+    <hr class="divider">
+    <div class="section mb-24">
+      <div class="result-title" id="t-post-title">🎯 Post-Rebalancing Portfolio</div>
+      <div class="section-desc" id="t-post-desc">Your portfolio after executing the operations:</div>
+      <div class="grid-2 mb-16" id="afterMetrics"></div>
+      <div class="table-wrap"><table id="postTable"><thead></thead><tbody></tbody></table></div>
+      <div id="deviationAlert" style="margin-top:12px"></div>
+    </div>
+    <div id="disclaimer" class="alert alert-info"></div>
+  </div>
+</div>
+
+<!-- ===== TAB 3: SETTINGS ===== -->
+<div id="tab-settings" class="tab-panel">
+  <div class="section">
+    <div class="section-title" id="t-set-title">Algorithm Settings</div>
+    <div class="section-desc" id="t-set-desc">Configure how the rebalancing algorithm behaves.</div>
+  </div>
+  <div class="card mb-16">
+    <div class="result-title" id="t-rnd-title">Share Rounding</div>
+    <p class="text-muted text-sm mb-12" id="t-rnd-desc">Some assets require whole shares. Enable rounding to convert fractional share calculations to integers.</p>
+    <div class="checkbox-wrap mb-16"><input type="checkbox" id="applyRounding" onchange="toggleRounding()"><label for="applyRounding" id="l-apply-rnd">Apply rounding to share quantities</label></div>
+    <div id="roundingOptions" class="hidden">
+      <div class="sub-title mb-8" id="l-rnd-method">Rounding method:</div>
+      <div class="radio-group mb-12">
+        <button class="radio-btn" id="rnd-FLOOR" onclick="setRounding('FLOOR')">FLOOR</button>
+        <button class="radio-btn active" id="rnd-ROUND" onclick="setRounding('ROUND')">ROUND</button>
+        <button class="radio-btn" id="rnd-CEIL" onclick="setRounding('CEIL')">CEIL</button>
+      </div>
+      <div id="roundingInfo" class="alert alert-info"></div>
+      <div class="alert alert-warning mt-12" style="margin-top:12px" id="t-rnd-warn"></div>
+    </div>
+  </div>
+  <div class="card mb-16">
+    <div class="result-title" id="t-algo-title">Algorithm Information</div>
+    <div class="text-dim text-sm" id="t-algo-text"></div>
+  </div>
+  <div class="card">
+    <div class="collapse-header" onclick="toggleCollapse('assumptions-body')">
+      <span id="t-assumptions-header">📋 Assumptions &amp; Limitations</span><span class="arrow">▼</span>
+    </div>
+    <div class="collapse-body" id="assumptions-body">
+      <div class="text-dim text-sm" id="t-assumptions-text"></div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /main -->
+<div id="toast"></div>
+
+<script>
+// ── STATE ──────────────────────────────────────────────────────────────
+let lang = 'en';
+let editingIndex = null;
+let roundingPolicy = 'ROUND';
+let applyRounding = false;
+let lastResult = null;
+
+let assets = [
+  {symbol:'VWCE',quantity:50,price:100,avgCost:95,taxRate:26,targetWeight:60,
+   buyFixed:0,buyPct:0,buyMin:0,buyMax:0,sellFixed:0,sellPct:0,sellMin:0,sellMax:0},
+  {symbol:'AGGH',quantity:30,price:110,avgCost:108,taxRate:26,targetWeight:25,
+   buyFixed:0,buyPct:0,buyMin:0,buyMax:0,sellFixed:0,sellPct:0,sellMin:0,sellMax:0},
+  {symbol:'EIMI',quantity:20,price:135,avgCost:130,taxRate:26,targetWeight:15,
+   buyFixed:0,buyPct:0,buyMin:0,buyMax:0,sellFixed:0,sellPct:0,sellMin:0,sellMax:0},
+];
+
+// ── TRANSLATIONS ───────────────────────────────────────────────────────
+const T = {
+en:{
+  app_title:'Portfolio Rebalancer',
+  tab_portfolio:'🎯 Target & Portfolio',tab_analysis:'📈 Analysis',tab_settings:'⚙️ Settings',
+  config_title:'Portfolio Configuration',
+  config_desc:"Build your portfolio by adding assets. Define each asset's current holdings and target allocation.",
+  l_pname:'Portfolio Name',l_cash:'Available Cash to Deploy (€)',
+  form_add:'Add Asset',form_edit:'Edit Asset',
+  l_basic:'Basic Information',
+  l_sym:'Asset Symbol/Name *',l_qty:'Quantity (shares) *',l_price:'Current Price (€) *',
+  l_avg:'Average Cost (€) *',l_tax:'Tax Rate (%) *',l_tgt:'Target Weight (%) *',
+  l_comm_sec:'📋 Commission Settings (Optional)',
+  l_buy_comm:'Buy Commissions',l_sell_comm:'Sell Commissions',
+  l_fixed:'Fixed Fee (€)',l_pct:'% Fee',l_min:'Min Fee (€)',l_max:'Max Fee (€)',
+  btn_add:'➕ Add Asset',btn_update:'✅ Update Asset',btn_cancel:'✕ Cancel',btn_reset:'🔄 Reset Example',
+  t_cur_portfolio:'Current Portfolio Assets',t_port_summary:'Portfolio Summary',
+  t_analysis_title:'Rebalancing Analysis',
+  t_analysis_desc:'Run the rebalancing algorithm to see what operations are needed.',
+  btn_run:'▶ Run Rebalancing Analysis',
+  t_cur_state:'📊 Current Portfolio State',t_cur_state_desc:'Your portfolio before rebalancing:',
+  t_ops_title:'🔄 Required Operations',t_ops_desc:'Buy and sell operations needed to reach target allocation:',
+  t_cf_title:'💰 Cash Flow Summary',
+  t_cost_title:'💳 Rebalancing Cost Breakdown',
+  t_tx_fees:'Transaction Fees',t_cg_tax:'Capital Gains Tax',
+  t_post_title:'🎯 Post-Rebalancing Portfolio',t_post_desc:'Your portfolio after executing the operations:',
+  t_set_title:'Algorithm Settings',t_set_desc:'Configure how the rebalancing algorithm behaves.',
+  t_rnd_title:'Share Rounding',
+  t_rnd_desc:'Some assets require whole shares. Enable rounding to convert fractional share calculations to integers.',
+  l_apply_rnd:'Apply rounding to share quantities',l_rnd_method:'Rounding method:',
+  t_rnd_warn:'Note: Rounding will cause the final weights to deviate slightly from targets and the cash flow may not be exactly zero.',
+  t_algo_title:'Algorithm Information',
+  t_algo_text:`This tool uses a <strong>deterministic 8-step algorithm</strong>:<br><br>
+1. Compute current portfolio state<br>2. Calculate deviations from target weights<br>
+3. Compute target value changes<br>4. Convert to share quantities<br>
+5. Calculate cash flow (with tax and commissions)<br>6. Close cash flow (proportional scaling)<br>
+7. Simulate post-rebalancing state<br>8. Apply rounding (optional)<br><br>
+<strong>Key Features:</strong> ✅ Deterministic &nbsp; ✅ Tax-aware &nbsp; ✅ Commission-aware &nbsp; ✅ Cash-neutral or cash-deployment capable`,
+  t_assumptions_header:'📋 Assumptions & Limitations',
+  t_assumptions_text:`<strong>Assumptions:</strong><br>
+• Prices remain constant during execution<br>• Infinite liquidity<br>• All operations execute simultaneously<br>• Average cost basis is known<br><br>
+<strong>Limitations:</strong><br>• Single currency only<br>• Linear capital gains tax<br>• No tax loss harvesting<br><br>
+<strong>Not Included:</strong><br>• Market predictions<br>• Risk/return optimization<br>• Automatic order execution`,
+  rnd_floor:'🔽 FLOOR: Always rounds down. Conservative, may leave cash unallocated.',
+  rnd_round:'🎯 ROUND: Rounds to nearest integer. Balanced approach (recommended).',
+  rnd_ceil:'🔼 CEIL: Always rounds up. May require slightly more cash.',
+  col_symbol:'Symbol',col_qty:'Quantity',col_price:'Price',col_value:'Value',
+  col_cur_wgt:'Current Weight',col_tgt_wgt:'Target Weight',col_dev:'Deviation',
+  col_action:'Action',col_tax_sell:'Tax (if selling)',
+  col_new_qty:'New Quantity',col_new_val:'New Value',col_new_wgt:'New Weight',
+  lbl_value:'Value',lbl_target:'Target',lbl_qty:'Qty',lbl_edit:'✏️ Edit',lbl_delete:'🗑️ Delete',
+  msg_total_value:'Total Value',msg_num_assets:'Assets',msg_target_sum:'Target Sum',
+  msg_valid:'✅ Portfolio valid and ready for analysis',
+  msg_invalid:'❌ Portfolio invalid: {0}',
+  msg_empty:'📝 No assets in portfolio. Add your first asset using the form above.',
+  msg_before:'Total Value (Before)',msg_cash_lbl:'Available Cash',
+  msg_ci:'Cash from Sales',msg_co:'Cash for Purchases',msg_ncf:'Net Cash Flow',
+  msg_balanced:'✅ Cash flow is balanced (no external funds needed)',
+  msg_needed:'⚠️ You\'ll need to add {0} to complete purchases',
+  msg_left:'ℹ️ You\'ll have {0} left over after rebalancing',
+  msg_buy_comm:'Buy Commissions',msg_sell_comm:'Sell Commissions',msg_tot_comm:'Total Commissions',
+  msg_tot_tax:'Total Tax Paid',
+  msg_tax_with:'*Tax applies only to profitable sales*',
+  msg_tax_none:'*No capital gains tax (no profitable sales)*',
+  msg_cost_note:'Note: Commissions and capital gains taxes are already reflected in the cash flow calculations above.',
+  msg_after:'Total Value (After)',msg_max_dev:'Max Weight Deviation',
+  msg_dev_ok:'✅ Excellent: All weights within 1% of target',
+  msg_dev_good:'ℹ️ Good: All weights within 5% of target',
+  msg_dev_warn:'⚠️ Large deviations remain (consider adjusting parameters)',
+  msg_disclaimer:'Note: This is a calculation tool, not financial advice. Always verify calculations and consult a financial advisor if needed.',
+  msg_cannot_run:'⚠️ Cannot run analysis: {0}',
+  msg_fix:'👉 Go to the Target & Portfolio tab to fix the portfolio configuration.',
+  err_sym:'Asset name cannot be empty',err_qty:'Quantity must be ≥ 0',
+  err_price:'Price must be > 0',err_avg:'Average cost must be ≥ 0',
+  err_tax:'Tax rate must be 0–100%',err_wgt:'Target weight must be 0–100%',
+  err_dup:'Asset "{0}" already exists',
+  ok_added:'Asset "{0}" added!',ok_updated:'Asset "{0}" updated!',ok_deleted:'Asset "{0}" deleted',
+},
+it:{
+  app_title:'Ribilanciatore Portfolio',
+  tab_portfolio:'🎯 Target & Portfolio',tab_analysis:'📈 Analisi',tab_settings:'⚙️ Impostazioni',
+  config_title:'Configurazione Portfolio',
+  config_desc:"Costruisci il tuo portfolio aggiungendo asset. Definisci le partecipazioni attuali e l'allocazione target.",
+  l_pname:'Nome Portfolio',l_cash:'Liquidità Disponibile da Investire (€)',
+  form_add:'Aggiungi Asset',form_edit:'Modifica Asset',
+  l_basic:'Informazioni di Base',
+  l_sym:'Simbolo/Nome Asset *',l_qty:'Quantità (azioni) *',l_price:'Prezzo Attuale (€) *',
+  l_avg:'Costo Medio (€) *',l_tax:'Aliquota Fiscale (%) *',l_tgt:'Peso Target (%) *',
+  l_comm_sec:'📋 Impostazioni Commissioni (Opzionale)',
+  l_buy_comm:'Commissioni di Acquisto',l_sell_comm:'Commissioni di Vendita',
+  l_fixed:'Commissione Fissa (€)',l_pct:'Commissione %',l_min:'Commissione Min (€)',l_max:'Commissione Max (€)',
+  btn_add:'➕ Aggiungi Asset',btn_update:'✅ Aggiorna Asset',btn_cancel:'✕ Annulla',btn_reset:'🔄 Ripristina Esempio',
+  t_cur_portfolio:'Asset del Portfolio Corrente',t_port_summary:'Riepilogo Portfolio',
+  t_analysis_title:'Analisi di Ribilanciamento',
+  t_analysis_desc:"Esegui l'algoritmo di ribilanciamento per vedere quali operazioni sono necessarie.",
+  btn_run:'▶ Esegui Analisi di Ribilanciamento',
+  t_cur_state:'📊 Stato Corrente del Portfolio',t_cur_state_desc:'Il tuo portfolio prima del ribilanciamento:',
+  t_ops_title:'🔄 Operazioni Necessarie',t_ops_desc:"Operazioni di acquisto e vendita per raggiungere l'allocazione target:",
+  t_cf_title:'💰 Riepilogo Flusso di Cassa',
+  t_cost_title:'💳 Dettaglio Costi di Ribilanciamento',
+  t_tx_fees:'Commissioni di Transazione',t_cg_tax:'Imposte sulle Plusvalenze',
+  t_post_title:'🎯 Portfolio Post-Ribilanciamento',t_post_desc:"Il tuo portfolio dopo l'esecuzione delle operazioni:",
+  t_set_title:'Impostazioni Algoritmo',t_set_desc:"Configura il comportamento dell'algoritmo di ribilanciamento.",
+  t_rnd_title:'Arrotondamento Azioni',
+  t_rnd_desc:'Alcuni asset richiedono azioni intere. Abilita l\'arrotondamento per convertire i calcoli in numeri interi.',
+  l_apply_rnd:'Applica arrotondamento alle quantità di azioni',l_rnd_method:'Metodo di arrotondamento:',
+  t_rnd_warn:"Nota: L'arrotondamento causerà una leggera deviazione dei pesi finali dai target e il flusso di cassa potrebbe non essere esattamente zero.",
+  t_algo_title:"Informazioni sull'Algoritmo",
+  t_algo_text:`Questo strumento utilizza un <strong>algoritmo deterministico in 8 passi</strong>:<br><br>
+1. Calcola lo stato corrente del portfolio<br>2. Calcola le deviazioni dai pesi target<br>
+3. Calcola le variazioni di valore target<br>4. Converte in quantità di azioni<br>
+5. Calcola il flusso di cassa (con tasse e commissioni)<br>6. Chiude il flusso di cassa (scaling proporzionale)<br>
+7. Simula lo stato post-ribilanciamento<br>8. Applica l'arrotondamento (opzionale)<br><br>
+<strong>Caratteristiche:</strong> ✅ Deterministico &nbsp; ✅ Fiscalmente consapevole &nbsp; ✅ Commissioni incluse &nbsp; ✅ Cash-neutral o cash-deployment`,
+  t_assumptions_header:'📋 Assunzioni & Limitazioni',
+  t_assumptions_text:`<strong>Assunzioni:</strong><br>
+• I prezzi rimangono costanti durante l'esecuzione<br>• Liquidità infinita<br>• Tutte le operazioni vengono eseguite simultaneamente<br>• La base di costo medio è nota<br><br>
+<strong>Limitazioni:</strong><br>• Solo una valuta<br>• Imposta lineare sulle plusvalenze<br>• Nessuna compensazione delle perdite fiscali<br><br>
+<strong>Non Incluso:</strong><br>• Previsioni di mercato<br>• Ottimizzazione rischio/rendimento<br>• Esecuzione automatica degli ordini`,
+  rnd_floor:'🔽 FLOOR: Arrotonda sempre per difetto. Conservativo.',
+  rnd_round:'🎯 ROUND: Arrotonda al più vicino. Approccio bilanciato (consigliato).',
+  rnd_ceil:'🔼 CEIL: Arrotonda sempre per eccesso. Potrebbe richiedere più liquidità.',
+  col_symbol:'Simbolo',col_qty:'Quantità',col_price:'Prezzo',col_value:'Valore',
+  col_cur_wgt:'Peso Attuale',col_tgt_wgt:'Peso Target',col_dev:'Deviazione',
+  col_action:'Azione',col_tax_sell:'Tassa (vendita)',
+  col_new_qty:'Nuova Quantità',col_new_val:'Nuovo Valore',col_new_wgt:'Nuovo Peso',
+  lbl_value:'Valore',lbl_target:'Target',lbl_qty:'Qt.',lbl_edit:'✏️ Modifica',lbl_delete:'🗑️ Elimina',
+  msg_total_value:'Valore Totale',msg_num_assets:'Asset',msg_target_sum:'Somma Target',
+  msg_valid:"✅ Portfolio valido e pronto per l'analisi",
+  msg_invalid:'❌ Portfolio non valido: {0}',
+  msg_empty:'📝 Nessun asset nel portfolio. Aggiungine uno usando il modulo sopra.',
+  msg_before:'Valore Totale (Prima)',msg_cash_lbl:'Liquidità Disponibile',
+  msg_ci:'Liquidità da Vendite',msg_co:'Liquidità per Acquisti',msg_ncf:'Flusso di Cassa Netto',
+  msg_balanced:'✅ Il flusso di cassa è bilanciato (non servono fondi esterni)',
+  msg_needed:'⚠️ Dovrai aggiungere {0} per completare gli acquisti',
+  msg_left:'ℹ️ Avrai {0} residui dopo il ribilanciamento',
+  msg_buy_comm:'Commissioni di Acquisto',msg_sell_comm:'Commissioni di Vendita',msg_tot_comm:'Commissioni Totali',
+  msg_tot_tax:'Imposte Totali Pagate',
+  msg_tax_with:'*Le imposte si applicano solo alle vendite con plusvalenza*',
+  msg_tax_none:'*Nessuna imposta sulle plusvalenze*',
+  msg_cost_note:'Nota: Commissioni e imposte sulle plusvalenze sono già riflesse nei calcoli del flusso di cassa.',
+  msg_after:'Valore Totale (Dopo)',msg_max_dev:'Deviazione Massima Peso',
+  msg_dev_ok:"✅ Eccellente: Tutti i pesi entro l'1% dal target",
+  msg_dev_good:'ℹ️ Buono: Tutti i pesi entro il 5% dal target',
+  msg_dev_warn:'⚠️ Rimangono grandi deviazioni (considera di modificare i parametri)',
+  msg_disclaimer:'Nota: Questo è uno strumento di calcolo, non una consulenza finanziaria. Verifica sempre i calcoli.',
+  msg_cannot_run:"⚠️ Impossibile eseguire l'analisi: {0}",
+  msg_fix:'👉 Vai alla scheda Target & Portfolio per correggere la configurazione.',
+  err_sym:"Il nome dell'asset non può essere vuoto",err_qty:'La quantità deve essere ≥ 0',
+  err_price:'Il prezzo deve essere > 0',err_avg:'Il costo medio deve essere ≥ 0',
+  err_tax:"L'aliquota fiscale deve essere tra 0% e 100%",err_wgt:'Il peso target deve essere tra 0% e 100%',
+  err_dup:'L\'asset "{0}" esiste già nel portfolio',
+  ok_added:'Asset "{0}" aggiunto!',ok_updated:'Asset "{0}" aggiornato!',ok_deleted:'Asset "{0}" eliminato',
+}};
+
+function t(key,...args){let s=(T[lang]||T.en)[key]||key;args.forEach((a,i)=>{s=s.replace(`{${i}}`,a);});return s;}
+
+// ── LANGUAGE ───────────────────────────────────────────────────────────
+function setLang(l){
+  lang=l;
+  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.toggle('active',b.textContent===l.toUpperCase()));
+  refreshText();renderAssets();if(lastResult)renderResults(lastResult);
+}
+
+function setEl(id,prop,val){const el=document.getElementById(id);if(el){if(prop==='html')el.innerHTML=val;else el.textContent=val;}}
+
+function refreshText(){
+  setEl('h-title','text',t('app_title'));
+  setEl('tabn-portfolio','text',t('tab_portfolio'));
+  setEl('tabn-analysis','text',t('tab_analysis'));
+  setEl('tabn-settings','text',t('tab_settings'));
+  setEl('t-config-title','text',t('config_title'));
+  setEl('t-config-desc','text',t('config_desc'));
+  setEl('l-pname','text',t('l_pname'));setEl('l-cash','text',t('l_cash'));
+  setEl('form-title','text',editingIndex!==null?t('form_edit'):t('form_add'));
+  setEl('l-basic-info','text',t('l_basic'));
+  setEl('l-sym','text',t('l_sym'));setEl('l-qty','text',t('l_qty'));setEl('l-price','text',t('l_price'));
+  setEl('l-avg','text',t('l_avg'));setEl('l-tax','text',t('l_tax'));setEl('l-tgt','text',t('l_tgt'));
+  setEl('l-comm-sec','text',t('l_comm_sec'));
+  setEl('l-buy-comm','text',t('l_buy_comm'));setEl('l-sell-comm','text',t('l_sell_comm'));
+  ['l-bf','l-sf'].forEach(id=>setEl(id,'text',t('l_fixed')));
+  ['l-bp','l-sp'].forEach(id=>setEl(id,'text',t('l_pct')));
+  ['l-bm','l-sm'].forEach(id=>setEl(id,'text',t('l_min')));
+  ['l-bx','l-sx'].forEach(id=>setEl(id,'text',t('l_max')));
+  setEl('addAssetBtn','text',editingIndex!==null?t('btn_update'):t('btn_add'));
+  setEl('cancelEditBtn','text',t('btn_cancel'));
+  setEl('t-cur-portfolio','text',t('t_cur_portfolio'));
+  setEl('t-port-summary','text',t('t_port_summary'));
+  setEl('t-analysis-title','text',t('t_analysis_title'));
+  setEl('t-analysis-desc','text',t('t_analysis_desc'));
+  setEl('runBtn','text',t('btn_run'));
+  setEl('t-cur-state','text',t('t_cur_state'));setEl('t-cur-state-desc','text',t('t_cur_state_desc'));
+  setEl('t-ops-title','text',t('t_ops_title'));setEl('t-ops-desc','text',t('t_ops_desc'));
+  setEl('t-cf-title','text',t('t_cf_title'));
+  setEl('t-cost-title','text',t('t_cost_title'));
+  setEl('t-tx-fees','text',t('t_tx_fees'));setEl('t-cg-tax','text',t('t_cg_tax'));
+  setEl('t-post-title','text',t('t_post_title'));setEl('t-post-desc','text',t('t_post_desc'));
+  setEl('t-set-title','text',t('t_set_title'));setEl('t-set-desc','text',t('t_set_desc'));
+  setEl('t-rnd-title','text',t('t_rnd_title'));setEl('t-rnd-desc','text',t('t_rnd_desc'));
+  setEl('l-apply-rnd','text',t('l_apply_rnd'));setEl('l-rnd-method','text',t('l_rnd_method'));
+  setEl('t-rnd-warn','text',t('t_rnd_warn'));
+  setEl('t-algo-title','text',t('t_algo_title'));setEl('t-algo-text','html',t('t_algo_text'));
+  setEl('t-assumptions-header','text',t('t_assumptions_header'));
+  setEl('t-assumptions-text','html',t('t_assumptions_text'));
+  updateRoundingInfo();updateAnalysisWarning();
+}
+
+// ── TABS ───────────────────────────────────────────────────────────────
+function showTab(id){
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  const m={'tab-portfolio':'tabn-portfolio','tab-analysis':'tabn-analysis','tab-settings':'tabn-settings'};
+  document.getElementById(m[id]).classList.add('active');
+  if(id==='tab-analysis')updateAnalysisWarning();
+}
+
+// ── COLLAPSE ───────────────────────────────────────────────────────────
+function toggleCollapse(id){
+  const body=document.getElementById(id);
+  const header=body.previousElementSibling;
+  body.classList.toggle('open');if(header)header.classList.toggle('open');
+}
+
+// ── FORMAT ─────────────────────────────────────────────────────────────
+function fmtEur(v){return '€'+v.toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function fmtPct(v,d=2){return(v*100).toFixed(d)+'%';}
+function fmtQty(v){const s=v.toFixed(4);return s.replace(/\.?0+$/,'')||'0';}
+function devHtml(dev){
+  const p=dev*100,a=Math.abs(p),sign=p>=0?'+':'';
+  const cls=a<1?'dev-ok':a<3?'dev-warn':'dev-bad';
+  return `<span class="${cls}">${sign}${p.toFixed(2)}%</span>`;
+}
+
+// ── VALIDATION ─────────────────────────────────────────────────────────
+function validatePortfolio(){
+  if(assets.length===0)return[false,'Portfolio must contain at least one asset'];
+  const tot=assets.reduce((s,a)=>s+a.targetWeight,0);
+  if(Math.abs(tot-100)>0.01)return[false,`Target weights must sum to 100%, current: ${tot.toFixed(2)}%`];
+  for(const a of assets){
+    if(a.price<=0)return[false,`Price must be > 0 for ${a.symbol}`];
+    if(a.quantity<0)return[false,`Quantity must be ≥ 0 for ${a.symbol}`];
+    if(a.avgCost<0)return[false,`Average cost must be ≥ 0 for ${a.symbol}`];
+    if(a.quantity>0&&a.avgCost<=0)return[false,`Average cost must be > 0 when quantity > 0 (${a.symbol})`];
+  }
+  return[true,''];
+}
+
+// ── ASSET FORM ─────────────────────────────────────────────────────────
+function gv(id){return parseFloat(document.getElementById(id).value)||0;}
+function gs(id){return document.getElementById(id).value.trim();}
+
+function submitAssetForm(){
+  const sym=gs('f-symbol').toUpperCase();
+  const qty=gv('f-quantity'),price=gv('f-price'),avg=gv('f-avgcost');
+  const tax=gv('f-taxrate'),tgt=gv('f-targetweight');
+  if(!sym)return showFormErr(t('err_sym'));
+  if(qty<0)return showFormErr(t('err_qty'));
+  if(price<=0)return showFormErr(t('err_price'));
+  if(avg<0)return showFormErr(t('err_avg'));
+  if(tax<0||tax>100)return showFormErr(t('err_tax'));
+  if(tgt<0||tgt>100)return showFormErr(t('err_wgt'));
+  if(assets.findIndex((a,i)=>a.symbol===sym&&i!==editingIndex)>=0)return showFormErr(t('err_dup',sym));
+  hideFormErr();
+  const d={symbol:sym,quantity:qty,price,avgCost:avg,taxRate:tax,targetWeight:tgt,
+    buyFixed:gv('f-buy-fixed'),buyPct:gv('f-buy-pct'),buyMin:gv('f-buy-min'),buyMax:gv('f-buy-max'),
+    sellFixed:gv('f-sell-fixed'),sellPct:gv('f-sell-pct'),sellMin:gv('f-sell-min'),sellMax:gv('f-sell-max')};
+  if(editingIndex!==null){assets[editingIndex]=d;toast(t('ok_updated',sym),'success');cancelEdit();}
+  else{assets.push(d);toast(t('ok_added',sym),'success');resetForm();}
+  lastResult=null;renderAssets();updateAnalysisWarning();
+}
+function showFormErr(m){const el=document.getElementById('form-alert');el.className='alert alert-error mb-12';el.textContent=m;el.classList.remove('hidden');}
+function hideFormErr(){document.getElementById('form-alert').classList.add('hidden');}
+function resetForm(){
+  ['f-symbol'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-quantity').value='0';document.getElementById('f-price').value='100';
+  document.getElementById('f-avgcost').value='100';document.getElementById('f-taxrate').value='26';
+  document.getElementById('f-targetweight').value='0';
+  ['f-buy-fixed','f-buy-pct','f-buy-min','f-buy-max','f-sell-fixed','f-sell-pct','f-sell-min','f-sell-max'].forEach(id=>document.getElementById(id).value='0');
+}
+function editAsset(i){
+  editingIndex=i;const a=assets[i];
+  document.getElementById('f-symbol').value=a.symbol;
+  document.getElementById('f-quantity').value=a.quantity;document.getElementById('f-price').value=a.price;
+  document.getElementById('f-avgcost').value=a.avgCost;document.getElementById('f-taxrate').value=a.taxRate;
+  document.getElementById('f-targetweight').value=a.targetWeight;
+  document.getElementById('f-buy-fixed').value=a.buyFixed;document.getElementById('f-buy-pct').value=a.buyPct;
+  document.getElementById('f-buy-min').value=a.buyMin;document.getElementById('f-buy-max').value=a.buyMax;
+  document.getElementById('f-sell-fixed').value=a.sellFixed;document.getElementById('f-sell-pct').value=a.sellPct;
+  document.getElementById('f-sell-min').value=a.sellMin;document.getElementById('f-sell-max').value=a.sellMax;
+  document.getElementById('form-title').textContent=t('form_edit');
+  document.getElementById('addAssetBtn').textContent=t('btn_update');
+  document.getElementById('cancelEditBtn').classList.remove('hidden');
+  document.querySelector('.section-title').scrollIntoView({behavior:'smooth'});
+}
+function cancelEdit(){
+  editingIndex=null;resetForm();hideFormErr();
+  document.getElementById('form-title').textContent=t('form_add');
+  document.getElementById('addAssetBtn').textContent=t('btn_add');
+  document.getElementById('cancelEditBtn').classList.add('hidden');
+}
+function deleteAsset(i){
+  const sym=assets[i].symbol;assets.splice(i,1);
+  if(editingIndex===i)cancelEdit();
+  lastResult=null;renderAssets();updateAnalysisWarning();toast(t('ok_deleted',sym),'success');
+}
+function resetPortfolio(){
+  assets=[
+    {symbol:'VWCE',quantity:50,price:100,avgCost:95,taxRate:26,targetWeight:60,buyFixed:0,buyPct:0,buyMin:0,buyMax:0,sellFixed:0,sellPct:0,sellMin:0,sellMax:0},
+    {symbol:'AGGH',quantity:30,price:110,avgCost:108,taxRate:26,targetWeight:25,buyFixed:0,buyPct:0,buyMin:0,buyMax:0,sellFixed:0,sellPct:0,sellMin:0,sellMax:0},
+    {symbol:'EIMI',quantity:20,price:135,avgCost:130,taxRate:26,targetWeight:15,buyFixed:0,buyPct:0,buyMin:0,buyMax:0,sellFixed:0,sellPct:0,sellMin:0,sellMax:0},
+  ];
+  lastResult=null;cancelEdit();renderAssets();updateAnalysisWarning();
+}
+
+// ── RENDER ASSETS ──────────────────────────────────────────────────────
+function renderAssets(){
+  const list=document.getElementById('assetList');
+  if(assets.length===0){
+    list.innerHTML=`<div class="empty-state"><div class="icon">📋</div><p>${t('msg_empty')}</p></div>`;
+    document.getElementById('portfolioSummary').classList.add('hidden');return;
+  }
+  const tv=assets.reduce((s,a)=>s+a.quantity*a.price,0);
+  list.innerHTML=assets.map((a,i)=>{
+    const val=a.quantity*a.price,cw=tv>0?val/tv:0;
+    return`<div class="asset-card">
+      <div class="asset-symbol">${a.symbol}</div>
+      <div class="asset-meta">
+        <div class="asset-meta-item"><div class="asset-meta-label">${t('lbl_value')}</div><div class="asset-meta-value">${fmtEur(val)}</div></div>
+        <div class="asset-meta-item"><div class="asset-meta-label">${t('lbl_target')}</div><div class="asset-meta-value">${a.targetWeight.toFixed(1)}%</div></div>
+        <div class="asset-meta-item"><div class="asset-meta-label">${t('lbl_qty')}</div><div class="asset-meta-value">${fmtQty(a.quantity)} × ${fmtEur(a.price)}</div></div>
+        <div class="asset-meta-item"><div class="asset-meta-label">${t('col_cur_wgt')}</div><div class="asset-meta-value">${fmtPct(cw)}</div></div>
+      </div>
+      <div class="asset-actions">
+        <button class="btn btn-secondary btn-sm" onclick="editAsset(${i})">${t('lbl_edit')}</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteAsset(${i})">${t('lbl_delete')}</button>
+      </div>
+    </div>`;
+  }).join('');
+  const[valid,err]=validatePortfolio();
+  const tt=assets.reduce((s,a)=>s+a.targetWeight,0);
+  const summ=document.getElementById('portfolioSummary');summ.classList.remove('hidden');
+  document.getElementById('summaryValidation').innerHTML=valid
+    ?`<div class="alert alert-success">${t('msg_valid')}</div>`
+    :`<div class="alert alert-error">${t('msg_invalid',err)}</div>`;
+  document.getElementById('summaryMetrics').innerHTML=`
+    <div class="metric-card"><div class="metric-label">${t('msg_total_value')}</div><div class="metric-value">${fmtEur(tv)}</div></div>
+    <div class="metric-card"><div class="metric-label">${t('msg_num_assets')}</div><div class="metric-value accent2">${assets.length}</div></div>
+    <div class="metric-card"><div class="metric-label">${t('msg_target_sum')}</div><div class="metric-value ${Math.abs(tt-100)<0.01?'green':'red'}">${tt.toFixed(2)}%</div></div>`;
+}
+
+// ── REBALANCING ENGINE ─────────────────────────────────────────────────
+function calcComm(opVal,fixed,pct,min,max){
+  let p=opVal*(pct/100);
+  if(min>0)p=Math.max(p,min);if(max>0)p=Math.min(p,max);
+  return p+fixed;
+}
+function cashIn(a,qty){
+  if(qty<=0)return 0;
+  const gross=qty*a.price,gain=Math.max(0,a.price-a.avgCost),tax=qty*gain*(a.taxRate/100);
+  return gross-tax-calcComm(gross,a.sellFixed,a.sellPct,a.sellMin,a.sellMax);
+}
+function cashOut(a,qty){
+  if(qty<=0)return 0;
+  const cost=qty*a.price;return cost+calcComm(cost,a.buyFixed,a.buyPct,a.buyMin,a.buyMax);
+}
+function computeFlow(calc){
+  let ci=0,co=0;
+  calc.forEach(a=>{
+    if(a.dq<0)ci+=cashIn(a,Math.abs(a.dq));
+    else if(a.dq>0)co+=cashOut(a,a.dq);
+  });
+  return{ci,co,cf:ci-co};
+}
+
+function rebalance(assetList,cash,pol){
+  const c=assetList.map(a=>({...a,cv:0,cw:0,dev:0,dv:0,dq:0}));
+  // Step 1
+  c.forEach(a=>a.cv=a.quantity*a.price);
+  const tv=c.reduce((s,a)=>s+a.cv,0);
+  c.forEach(a=>a.cw=tv>0?a.cv/tv:0);
+  // Step 2
+  c.forEach(a=>a.dev=a.cw-(a.targetWeight/100));
+  // Step 3
+  const tt=tv+cash;
+  c.forEach(a=>{a.dv=(a.targetWeight/100)*tt-a.cv;});
+  // Step 4
+  c.forEach(a=>a.dq=a.dv/a.price);
+  // Step 5+6
+  let{ci,co,cf}=computeFlow(c);
+  const tgt=-cash;
+  if(co>0){
+    const diff=cf-tgt;
+    if(Math.abs(diff/co)>=1e-10){
+      const scale=1+diff/co;
+      c.forEach(a=>{if(a.dq>0){a.dq*=scale;a.dv=a.dq*a.price;}});
+    }
+  }
+  ({ci,co,cf}=computeFlow(c));
+  // Step 7
+  let ta=c.reduce((s,a)=>s+(a.quantity+a.dq)*a.price,0);
+  // Step 8
+  if(pol){
+    c.forEach(a=>{
+      if(pol==='FLOOR')a.dq=Math.floor(a.dq);
+      else if(pol==='ROUND')a.dq=Math.round(a.dq);
+      else if(pol==='CEIL')a.dq=Math.ceil(a.dq);
+      a.dv=a.dq*a.price;
+    });
+    ({ci,co,cf}=computeFlow(c));
+    ta=c.reduce((s,a)=>s+(a.quantity+a.dq)*a.price,0);
+  }
+  const tax=c.reduce((s,a)=>{
+    if(a.dq<-1e-9){const q=Math.abs(a.dq);return s+q*Math.max(0,a.price-a.avgCost)*(a.taxRate/100);}
+    return s;},0);
+  const cBuy=c.reduce((s,a)=>{
+    if(a.dq>1e-9){const cost=a.dq*a.price;return s+calcComm(cost,a.buyFixed,a.buyPct,a.buyMin,a.buyMax);}
+    return s;},0);
+  const cSell=c.reduce((s,a)=>{
+    if(a.dq<-1e-9){const q=Math.abs(a.dq),g=q*a.price,tx=q*Math.max(0,a.price-a.avgCost)*(a.taxRate/100);return s+g-tx-cashIn(a,q);}
+    return s;},0);
+  const maxDev=c.reduce((m,a)=>{
+    const nv=(a.quantity+a.dq)*a.price,nw=nv/ta,d=Math.abs(nw-a.targetWeight/100);return Math.max(m,d);},0);
+  return{assets:c,tv,ta,ci,co,cf,tax,cBuy,cSell,maxDev};
+}
+
+// ── ANALYSIS ───────────────────────────────────────────────────────────
+function updateAnalysisWarning(){
+  const[valid,err]=validatePortfolio();
+  const warn=document.getElementById('analysisWarning');
+  const btn=document.getElementById('runBtn');
+  if(!valid){
+    warn.innerHTML=`<div class="alert alert-warning">${t('msg_cannot_run',err)}<br><span class="text-dim text-sm">${t('msg_fix')}</span></div>`;
+    warn.classList.remove('hidden');btn.disabled=true;
+  }else{warn.classList.add('hidden');btn.disabled=false;}
+}
+
+function runAnalysis(){
+  const[valid,err]=validatePortfolio();
+  if(!valid){toast(err,'error');return;}
+  const cash=gv('cashAvailable');
+  const pol=applyRounding?roundingPolicy:null;
+  try{
+    const r=rebalance(assets,cash,pol);
+    lastResult=r;renderResults(r);
+    document.getElementById('analysisResults').classList.remove('hidden');
+    document.getElementById('analysisResults').scrollIntoView({behavior:'smooth',block:'start'});
+  }catch(e){toast('Error: '+e.message,'error');}
+}
+
+function buildTable(id,headers,rows){
+  const tbl=document.getElementById(id);
+  tbl.querySelector('thead').innerHTML=`<tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr>`;
+  tbl.querySelector('tbody').innerHTML=rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('');
+}
+
+function renderResults(r){
+  const{assets:c,tv,ta,ci,co,cf,tax,cBuy,cSell,maxDev}=r;
+  const cash=gv('cashAvailable');
+  // Before
+  let bm=`<div class="metric-card"><div class="metric-label">${t('msg_before')}</div><div class="metric-value">${fmtEur(tv)}</div></div>`;
+  if(cash>0)bm+=`<div class="metric-card"><div class="metric-label">${t('msg_cash_lbl')}</div><div class="metric-value green">${fmtEur(cash)}</div></div>`;
+  document.getElementById('beforeMetrics').innerHTML=bm;
+  // Current state table
+  buildTable('currentStateTable',
+    [t('col_symbol'),t('col_qty'),t('col_price'),t('col_value'),t('col_cur_wgt'),t('col_tgt_wgt'),t('col_dev')],
+    c.map(a=>[`<strong class="text-accent">${a.symbol}</strong>`,fmtQty(a.quantity),fmtEur(a.price),fmtEur(a.cv),fmtPct(a.cw),fmtPct(a.targetWeight/100),devHtml(a.dev)]));
+  // Ops table
+  buildTable('opsTable',
+    [t('col_symbol'),t('col_action'),t('col_qty'),t('col_value'),t('col_tax_sell')],
+    c.map(a=>{
+      const abs=Math.abs(a.dq);
+      if(abs<0.0001)return[`<strong>${a.symbol}</strong>`,`<span class="tag-hold">HOLD</span>`,'—','—','—'];
+      const act=a.dq>0?`<span class="tag-buy">BUY</span>`:`<span class="tag-sell">SELL</span>`;
+      const ti=(a.dq<0&&a.price>a.avgCost)?fmtEur(abs*Math.max(0,a.price-a.avgCost)*(a.taxRate/100)):'—';
+      return[`<strong>${a.symbol}</strong>`,act,fmtQty(abs),fmtEur(Math.abs(a.dv)),ti];
+    }));
+  // Cash flow
+  document.getElementById('cashflowMetrics').innerHTML=`
+    <div class="metric-card"><div class="metric-label">${t('msg_ci')}</div><div class="metric-value green">${fmtEur(ci)}</div></div>
+    <div class="metric-card"><div class="metric-label">${t('msg_co')}</div><div class="metric-value red">${fmtEur(co)}</div></div>
+    <div class="metric-card"><div class="metric-label">${t('msg_ncf')}</div><div class="metric-value ${Math.abs(cf)<1?'green':cf<0?'red':'accent2'}">${fmtEur(cf)}</div></div>`;
+  let cfa='';
+  if(Math.abs(cf)<1)cfa=`<div class="alert alert-success">${t('msg_balanced')}</div>`;
+  else if(cf<-1)cfa=`<div class="alert alert-warning">${t('msg_needed',fmtEur(Math.abs(cf)))}</div>`;
+  else cfa=`<div class="alert alert-info">${t('msg_left',fmtEur(cf))}</div>`;
+  document.getElementById('cashflowAlert').innerHTML=cfa;
+  // Commissions
+  document.getElementById('commBreakdown').innerHTML=`
+    <div class="summary-row"><span class="summary-key">${t('msg_buy_comm')}</span><span class="summary-val">${fmtEur(cBuy)}</span></div>
+    <div class="summary-row"><span class="summary-key">${t('msg_sell_comm')}</span><span class="summary-val">${fmtEur(cSell)}</span></div>
+    <div class="summary-row"><span class="summary-key"><strong>${t('msg_tot_comm')}</strong></span><span class="summary-val text-accent"><strong>${fmtEur(cBuy+cSell)}</strong></span></div>`;
+  // Tax
+  document.getElementById('taxBreakdown').innerHTML=`
+    <div class="summary-row"><span class="summary-key">${t('msg_tot_tax')}</span><span class="summary-val">${fmtEur(tax)}</span></div>
+    <div class="text-muted text-sm" style="margin-top:8px">${tax>0.01?t('msg_tax_with'):t('msg_tax_none')}</div>`;
+  document.getElementById('costNote').textContent=t('msg_cost_note');
+  // Post
+  document.getElementById('afterMetrics').innerHTML=`
+    <div class="metric-card"><div class="metric-label">${t('msg_after')}</div><div class="metric-value green">${fmtEur(ta)}</div></div>
+    <div class="metric-card"><div class="metric-label">${t('msg_max_dev')}</div><div class="metric-value ${maxDev<0.01?'green':maxDev<0.05?'':'red'}">${fmtPct(maxDev)}</div></div>`;
+  buildTable('postTable',
+    [t('col_symbol'),t('col_new_qty'),t('col_new_val'),t('col_new_wgt'),t('col_tgt_wgt'),t('col_dev')],
+    c.map(a=>{
+      const nq=a.quantity+a.dq,nv=nq*a.price,nw=nv/ta,dev=nw-a.targetWeight/100;
+      return[`<strong class="text-accent">${a.symbol}</strong>`,fmtQty(nq),fmtEur(nv),fmtPct(nw),fmtPct(a.targetWeight/100),devHtml(dev)];
+    }));
+  let da='';
+  if(maxDev<0.01)da=`<div class="alert alert-success">${t('msg_dev_ok')}</div>`;
+  else if(maxDev<0.05)da=`<div class="alert alert-info">${t('msg_dev_good')}</div>`;
+  else da=`<div class="alert alert-warning">${t('msg_dev_warn')}</div>`;
+  document.getElementById('deviationAlert').innerHTML=da;
+  document.getElementById('disclaimer').textContent=t('msg_disclaimer');
+}
+
+// ── SETTINGS ───────────────────────────────────────────────────────────
+function toggleRounding(){
+  applyRounding=document.getElementById('applyRounding').checked;
+  document.getElementById('roundingOptions').classList.toggle('hidden',!applyRounding);
+}
+function setRounding(pol){
+  roundingPolicy=pol;
+  document.querySelectorAll('.radio-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('rnd-'+pol).classList.add('active');
+  updateRoundingInfo();
+}
+function updateRoundingInfo(){
+  const el=document.getElementById('roundingInfo');
+  if(el)el.textContent=t('rnd_'+roundingPolicy.toLowerCase());
+}
+
+// ── TOAST ──────────────────────────────────────────────────────────────
+function toast(msg,type='success'){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.className=`show ${type}`;
+  setTimeout(()=>el.className='',2500);
+}
+
+// ── INIT ───────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded',()=>{
+  renderAssets();refreshText();updateRoundingInfo();
+});
+</script>
+</body>
+</html>
