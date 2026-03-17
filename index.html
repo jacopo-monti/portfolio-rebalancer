@@ -178,24 +178,35 @@ tbody td{padding:10px 14px;font-size:13px;white-space:nowrap}
         <div class="form-group"><label class="form-label" id="l-tgt">Target Weight (%) *</label><input class="form-input" id="f-targetweight" type="number" value="0" min="0" max="100" step="0.1"></div>
       </div>
 
-      <div class="mb-16">
-        <div class="collapse-header" onclick="toggleCollapse('comm-collapse')">
-          <span id="l-comm-sec">📋 Commission Settings (Optional)</span><span class="arrow">▼</span>
-        </div>
-        <div class="collapse-body" id="comm-collapse">
-          <div class="sub-title" id="l-buy-comm">Buy Commissions</div>
-          <div class="grid-4 mb-16">
-            <div class="form-group"><label class="form-label" id="l-bf">Fixed Fee (€)</label><input class="form-input" id="f-buy-fixed" type="number" value="0" min="0" step="0.01"></div>
-            <div class="form-group"><label class="form-label" id="l-bp">% Fee</label><input class="form-input" id="f-buy-pct" type="number" value="0" min="0" max="100" step="0.001"></div>
-            <div class="form-group"><label class="form-label" id="l-bm">Min Fee (€)</label><input class="form-input" id="f-buy-min" type="number" value="0" min="0" step="0.01"></div>
-            <div class="form-group"><label class="form-label" id="l-bx">Max Fee (€)</label><input class="form-input" id="f-buy-max" type="number" value="0" min="0" step="0.01"></div>
+      <div class="mb-16" id="comm-section">
+        <div class="sub-title" id="l-comm-sec" style="margin-bottom:10px">📋 Commission Settings</div>
+        <div class="grid-2 mb-12">
+          <div class="form-group">
+            <label class="form-label" id="l-use-profile">Use commission profile</label>
+            <select class="form-select" id="f-profile-select" onchange="onProfileSelectChange()">
+              <option value="" id="opt-no-profile">No profile (custom)</option>
+            </select>
           </div>
-          <div class="sub-title" id="l-sell-comm">Sell Commissions</div>
-          <div class="grid-4">
-            <div class="form-group"><label class="form-label" id="l-sf">Fixed Fee (€)</label><input class="form-input" id="f-sell-fixed" type="number" value="0" min="0" step="0.01"></div>
-            <div class="form-group"><label class="form-label" id="l-sp">% Fee</label><input class="form-input" id="f-sell-pct" type="number" value="0" min="0" max="100" step="0.001"></div>
-            <div class="form-group"><label class="form-label" id="l-sm">Min Fee (€)</label><input class="form-input" id="f-sell-min" type="number" value="0" min="0" step="0.01"></div>
-            <div class="form-group"><label class="form-label" id="l-sx">Max Fee (€)</label><input class="form-input" id="f-sell-max" type="number" value="0" min="0" step="0.01"></div>
+        </div>
+        <div id="f-custom-comm-wrap">
+          <div class="collapse-header" onclick="toggleCollapse('comm-collapse')">
+            <span id="l-comm-custom-label">📋 Custom Commissions</span><span class="arrow">▼</span>
+          </div>
+          <div class="collapse-body" id="comm-collapse">
+            <div class="sub-title" id="l-buy-comm">Buy Commissions</div>
+            <div class="grid-4 mb-16">
+              <div class="form-group"><label class="form-label" id="l-bf">Fixed Fee (€)</label><input class="form-input" id="f-buy-fixed" type="number" value="0" min="0" step="0.01"></div>
+              <div class="form-group"><label class="form-label" id="l-bp">% Fee</label><input class="form-input" id="f-buy-pct" type="number" value="0" min="0" max="100" step="0.001"></div>
+              <div class="form-group"><label class="form-label" id="l-bm">Min Fee (€)</label><input class="form-input" id="f-buy-min" type="number" value="0" min="0" step="0.01"></div>
+              <div class="form-group"><label class="form-label" id="l-bx">Max Fee (€)</label><input class="form-input" id="f-buy-max" type="number" value="0" min="0" step="0.01"></div>
+            </div>
+            <div class="sub-title" id="l-sell-comm">Sell Commissions</div>
+            <div class="grid-4">
+              <div class="form-group"><label class="form-label" id="l-sf">Fixed Fee (€)</label><input class="form-input" id="f-sell-fixed" type="number" value="0" min="0" step="0.01"></div>
+              <div class="form-group"><label class="form-label" id="l-sp">% Fee</label><input class="form-input" id="f-sell-pct" type="number" value="0" min="0" max="100" step="0.001"></div>
+              <div class="form-group"><label class="form-label" id="l-sm">Min Fee (€)</label><input class="form-input" id="f-sell-min" type="number" value="0" min="0" step="0.01"></div>
+              <div class="form-group"><label class="form-label" id="l-sx">Max Fee (€)</label><input class="form-input" id="f-sell-max" type="number" value="0" min="0" step="0.01"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -294,7 +305,44 @@ tbody td{padding:10px 14px;font-size:13px;white-space:nowrap}
     </div>
   </div>
   <div class="card mb-16">
-    <div class="result-title" id="t-algo-title">Algorithm Information</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <div class="result-title" id="t-profiles-title" style="margin-bottom:0">Commission Profiles</div>
+      <button class="btn btn-secondary btn-sm" onclick="startAddProfile()" id="btn-add-profile">+ Add Profile</button>
+    </div>
+    <p class="text-muted text-sm mb-16" id="t-profiles-desc">Define reusable commission structures and assign them to assets.</p>
+
+    <!-- Profile form (hidden by default) -->
+    <div id="profile-form" class="hidden" style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;margin-bottom:16px">
+      <div class="form-group mb-12">
+        <label class="form-label" id="lp-name">Profile Name</label>
+        <input class="form-input" id="pf-name" placeholder="e.g. Degiro, Fineco, IBKR" style="max-width:320px">
+        <div id="profile-form-error" class="hidden" style="color:var(--danger);font-size:12px;margin-top:4px"></div>
+      </div>
+      <div class="sub-title mb-8" id="lp-buy">Buy Commissions</div>
+      <div class="grid-4 mb-12">
+        <div class="form-group"><label class="form-label" id="lp-bf">Fixed Fee (€)</label><input class="form-input" id="pf-buy-fixed" type="number" value="0" min="0" step="0.01"></div>
+        <div class="form-group"><label class="form-label" id="lp-bp">% Fee</label><input class="form-input" id="pf-buy-pct" type="number" value="0" min="0" max="100" step="0.001"></div>
+        <div class="form-group"><label class="form-label" id="lp-bm">Min Fee (€)</label><input class="form-input" id="pf-buy-min" type="number" value="0" min="0" step="0.01"></div>
+        <div class="form-group"><label class="form-label" id="lp-bx">Max Fee (€)</label><input class="form-input" id="pf-buy-max" type="number" value="0" min="0" step="0.01"></div>
+      </div>
+      <div class="sub-title mb-8" id="lp-sell">Sell Commissions</div>
+      <div class="grid-4 mb-16">
+        <div class="form-group"><label class="form-label" id="lp-sf">Fixed Fee (€)</label><input class="form-input" id="pf-sell-fixed" type="number" value="0" min="0" step="0.01"></div>
+        <div class="form-group"><label class="form-label" id="lp-sp">% Fee</label><input class="form-input" id="pf-sell-pct" type="number" value="0" min="0" max="100" step="0.001"></div>
+        <div class="form-group"><label class="form-label" id="lp-sm">Min Fee (€)</label><input class="form-input" id="pf-sell-min" type="number" value="0" min="0" step="0.01"></div>
+        <div class="form-group"><label class="form-label" id="lp-sx">Max Fee (€)</label><input class="form-input" id="pf-sell-max" type="number" value="0" min="0" step="0.01"></div>
+      </div>
+      <div class="flex gap-8">
+        <button class="btn btn-primary btn-sm" onclick="saveProfile()" id="btn-save-profile">Save Profile</button>
+        <button class="btn btn-secondary btn-sm" onclick="cancelProfileEdit()" id="btn-cancel-profile">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Profile list -->
+    <div id="profile-list"></div>
+  </div>
+
+  <div class="card mb-16">
     <div class="text-dim text-sm" id="t-algo-text"></div>
   </div>
   <div class="card">
@@ -318,13 +366,17 @@ let roundingPolicy = 'ROUND';
 let applyRounding = false;
 let lastResult = null;
 
+// Commission profiles: array of {id, name, buyFixed, buyPct, buyMin, buyMax, sellFixed, sellPct, sellMin, sellMax}
+let commProfiles = [];
+let editingProfileIndex = null;
+
 let assets = [
   {symbol:'VWCE',quantity:50,price:100,avgCost:95,taxRate:26,targetWeight:60,
-   buyFixed:0,buyPct:0,buyMin:0,buyMax:0,sellFixed:0,sellPct:0,sellMin:0,sellMax:0},
+   profileId:null,buyFixed:0,buyPct:0,buyMin:0,buyMax:0,sellFixed:0,sellPct:0,sellMin:0,sellMax:0},
   {symbol:'AGGH',quantity:30,price:110,avgCost:108,taxRate:26,targetWeight:25,
-   buyFixed:0,buyPct:0,buyMin:0,buyMax:0,sellFixed:0,sellPct:0,sellMin:0,sellMax:0},
+   profileId:null,buyFixed:0,buyPct:0,buyMin:0,buyMax:0,sellFixed:0,sellPct:0,sellMin:0,sellMax:0},
   {symbol:'EIMI',quantity:20,price:135,avgCost:130,taxRate:26,targetWeight:15,
-   buyFixed:0,buyPct:0,buyMin:0,buyMax:0,sellFixed:0,sellPct:0,sellMin:0,sellMax:0},
+   profileId:null,buyFixed:0,buyPct:0,buyMin:0,buyMax:0,sellFixed:0,sellPct:0,sellMin:0,sellMax:0},
 ];
 
 // ── TRANSLATIONS ───────────────────────────────────────────────────────
@@ -404,6 +456,25 @@ en:{
   err_tax:'Tax rate must be 0–100%',err_wgt:'Target weight must be 0–100%',
   err_dup:'Asset "{0}" already exists',
   ok_added:'Asset "{0}" added!',ok_updated:'Asset "{0}" updated!',ok_deleted:'Asset "{0}" deleted',
+  // Commission profiles
+  t_profiles_title:'Commission Profiles',
+  t_profiles_desc:'Define reusable commission structures. Assign a profile to each asset, or set custom commissions per asset.',
+  btn_add_profile:'+ Add Profile',
+  btn_save_profile:'Save Profile',
+  btn_cancel_profile:'Cancel',
+  l_profile_name:'Profile Name',
+  l_profile_name_ph:'e.g. Degiro, Fineco, IBKR',
+  l_profile_buy:'Buy Commissions',
+  l_profile_sell:'Sell Commissions',
+  no_profiles:'No profiles yet. Click "Add Profile" to create one.',
+  l_use_profile:'Use commission profile',
+  l_select_profile:'Select profile',
+  l_no_profile:'No profile (custom)',
+  lbl_comm_profile:'Profile',
+  lbl_comm_custom:'Custom',
+  lbl_comm_none:'No comm.',
+  err_profile_name:'Profile name cannot be empty',
+  err_profile_dup:'A profile with this name already exists',
 },
 it:{
   app_title:'Ribilanciatore Portfolio',
@@ -480,6 +551,25 @@ it:{
   err_tax:"L'aliquota fiscale deve essere tra 0% e 100%",err_wgt:'Il peso target deve essere tra 0% e 100%',
   err_dup:'L\'asset "{0}" esiste già nel portfolio',
   ok_added:'Asset "{0}" aggiunto!',ok_updated:'Asset "{0}" aggiornato!',ok_deleted:'Asset "{0}" eliminato',
+  // Commission profiles
+  t_profiles_title:'Profili Commissionali',
+  t_profiles_desc:'Definisci strutture commissionali riutilizzabili. Assegna un profilo a ogni asset, oppure imposta commissioni personalizzate per singolo asset.',
+  btn_add_profile:'+ Aggiungi Profilo',
+  btn_save_profile:'Salva Profilo',
+  btn_cancel_profile:'Annulla',
+  l_profile_name:'Nome Profilo',
+  l_profile_name_ph:'es. Degiro, Fineco, IBKR',
+  l_profile_buy:'Commissioni Acquisto',
+  l_profile_sell:'Commissioni Vendita',
+  no_profiles:'Nessun profilo ancora. Clicca "Aggiungi Profilo" per crearne uno.',
+  l_use_profile:'Usa profilo commissionale',
+  l_select_profile:'Seleziona profilo',
+  l_no_profile:'Nessun profilo (custom)',
+  lbl_comm_profile:'Profilo',
+  lbl_comm_custom:'Custom',
+  lbl_comm_none:'Nessuna',
+  err_profile_name:'Il nome del profilo non può essere vuoto',
+  err_profile_dup:'Esiste già un profilo con questo nome',
 }};
 
 function t(key,...args){let s=(T[lang]||T.en)[key]||key;args.forEach((a,i)=>{s=s.replace(`{${i}}`,a);});return s;}
@@ -560,6 +650,16 @@ function devHtml(dev){
   const cls=a<1?'dev-ok':a<3?'dev-warn':'dev-bad';
   return `<span class="${cls}">${sign}${p.toFixed(2)}%</span>`;
 }
+function commBadge(a){
+  if(a.profileId){
+    const p=getProfileById(a.profileId);
+    const name=p?p.name:t('lbl_comm_profile');
+    return `<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:var(--accent-dim);color:var(--accent)">${name}</span>`;
+  }
+  const hasCustom=a.buyFixed>0||a.buyPct>0||a.sellFixed>0||a.sellPct>0;
+  if(hasCustom)return `<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:var(--accent2-dim);color:var(--accent2)">${t('lbl_comm_custom')}</span>`;
+  return `<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(107,115,138,.15);color:var(--text-muted)">${t('lbl_comm_none')}</span>`;
+}
 
 // ── VALIDATION ─────────────────────────────────────────────────────────
 function validatePortfolio(){
@@ -591,9 +691,14 @@ function submitAssetForm(){
   if(tgt<0||tgt>100)return showFormErr(t('err_wgt'));
   if(assets.findIndex((a,i)=>a.symbol===sym&&i!==editingIndex)>=0)return showFormErr(t('err_dup',sym));
   hideFormErr();
+  const profileId=document.getElementById('f-profile-select').value||null;
+  // When a profile is selected, custom commission fields are irrelevant — store zeros
   const d={symbol:sym,quantity:qty,price,avgCost:avg,taxRate:tax,targetWeight:tgt,
-    buyFixed:gv('f-buy-fixed'),buyPct:gv('f-buy-pct'),buyMin:gv('f-buy-min'),buyMax:gv('f-buy-max'),
-    sellFixed:gv('f-sell-fixed'),sellPct:gv('f-sell-pct'),sellMin:gv('f-sell-min'),sellMax:gv('f-sell-max')};
+    profileId,
+    buyFixed:profileId?0:gv('f-buy-fixed'),buyPct:profileId?0:gv('f-buy-pct'),
+    buyMin:profileId?0:gv('f-buy-min'),buyMax:profileId?0:gv('f-buy-max'),
+    sellFixed:profileId?0:gv('f-sell-fixed'),sellPct:profileId?0:gv('f-sell-pct'),
+    sellMin:profileId?0:gv('f-sell-min'),sellMax:profileId?0:gv('f-sell-max')};
   if(editingIndex!==null){assets[editingIndex]=d;toast(t('ok_updated',sym),'success');cancelEdit();}
   else{assets.push(d);toast(t('ok_added',sym),'success');resetForm();}
   lastResult=null;renderAssets();updateAnalysisWarning();
@@ -606,6 +711,11 @@ function resetForm(){
   document.getElementById('f-avgcost').value='100';document.getElementById('f-taxrate').value='26';
   document.getElementById('f-targetweight').value='0';
   ['f-buy-fixed','f-buy-pct','f-buy-min','f-buy-max','f-sell-fixed','f-sell-pct','f-sell-min','f-sell-max'].forEach(id=>document.getElementById(id).value='0');
+  // Reset commission section
+  const sel=document.getElementById('f-profile-select');
+  if(sel)sel.value='';
+  const cw=document.getElementById('f-custom-comm-wrap');
+  if(cw)cw.classList.remove('hidden');
 }
 function editAsset(i){
   editingIndex=i;const a=assets[i];
@@ -613,6 +723,10 @@ function editAsset(i){
   document.getElementById('f-quantity').value=a.quantity;document.getElementById('f-price').value=a.price;
   document.getElementById('f-avgcost').value=a.avgCost;document.getElementById('f-taxrate').value=a.taxRate;
   document.getElementById('f-targetweight').value=a.targetWeight;
+  // Restore commission profile selection
+  const sel=document.getElementById('f-profile-select');
+  sel.value=a.profileId||'';
+  document.getElementById('f-custom-comm-wrap').classList.toggle('hidden', !!a.profileId);
   document.getElementById('f-buy-fixed').value=a.buyFixed;document.getElementById('f-buy-pct').value=a.buyPct;
   document.getElementById('f-buy-min').value=a.buyMin;document.getElementById('f-buy-max').value=a.buyMax;
   document.getElementById('f-sell-fixed').value=a.sellFixed;document.getElementById('f-sell-pct').value=a.sellPct;
@@ -635,9 +749,9 @@ function deleteAsset(i){
 }
 function resetPortfolio(){
   assets=[
-    {symbol:'VWCE',quantity:50,price:100,avgCost:95,taxRate:26,targetWeight:60,buyFixed:0,buyPct:0,buyMin:0,buyMax:0,sellFixed:0,sellPct:0,sellMin:0,sellMax:0},
-    {symbol:'AGGH',quantity:30,price:110,avgCost:108,taxRate:26,targetWeight:25,buyFixed:0,buyPct:0,buyMin:0,buyMax:0,sellFixed:0,sellPct:0,sellMin:0,sellMax:0},
-    {symbol:'EIMI',quantity:20,price:135,avgCost:130,taxRate:26,targetWeight:15,buyFixed:0,buyPct:0,buyMin:0,buyMax:0,sellFixed:0,sellPct:0,sellMin:0,sellMax:0},
+    {symbol:'VWCE',quantity:50,price:100,avgCost:95,taxRate:26,targetWeight:60,profileId:null,buyFixed:0,buyPct:0,buyMin:0,buyMax:0,sellFixed:0,sellPct:0,sellMin:0,sellMax:0},
+    {symbol:'AGGH',quantity:30,price:110,avgCost:108,taxRate:26,targetWeight:25,profileId:null,buyFixed:0,buyPct:0,buyMin:0,buyMax:0,sellFixed:0,sellPct:0,sellMin:0,sellMax:0},
+    {symbol:'EIMI',quantity:20,price:135,avgCost:130,taxRate:26,targetWeight:15,profileId:null,buyFixed:0,buyPct:0,buyMin:0,buyMax:0,sellFixed:0,sellPct:0,sellMin:0,sellMax:0},
   ];
   lastResult=null;cancelEdit();renderAssets();updateAnalysisWarning();
 }
@@ -659,6 +773,7 @@ function renderAssets(){
         <div class="asset-meta-item"><div class="asset-meta-label">${t('lbl_target')}</div><div class="asset-meta-value">${a.targetWeight.toFixed(1)}%</div></div>
         <div class="asset-meta-item"><div class="asset-meta-label">${t('lbl_qty')}</div><div class="asset-meta-value">${fmtQty(a.quantity)} × ${fmtEur(a.price)}</div></div>
         <div class="asset-meta-item"><div class="asset-meta-label">${t('col_cur_wgt')}</div><div class="asset-meta-value">${fmtPct(cw)}</div></div>
+        <div class="asset-meta-item"><div class="asset-meta-label">Comm.</div><div class="asset-meta-value">${commBadge(a)}</div></div>
       </div>
       <div class="asset-actions">
         <button class="btn btn-secondary btn-sm" onclick="editAsset(${i})">${t('lbl_edit')}</button>
@@ -686,12 +801,14 @@ function calcComm(opVal,fixed,pct,min,max){
 }
 function cashIn(a,qty){
   if(qty<=0)return 0;
+  const ec=effectiveComm(a);
   const gross=qty*a.price,gain=Math.max(0,a.price-a.avgCost),tax=qty*gain*(a.taxRate/100);
-  return gross-tax-calcComm(gross,a.sellFixed,a.sellPct,a.sellMin,a.sellMax);
+  return gross-tax-calcComm(gross,ec.sellFixed,ec.sellPct,ec.sellMin,ec.sellMax);
 }
 function cashOut(a,qty){
   if(qty<=0)return 0;
-  const cost=qty*a.price;return cost+calcComm(cost,a.buyFixed,a.buyPct,a.buyMin,a.buyMax);
+  const ec=effectiveComm(a);
+  const cost=qty*a.price;return cost+calcComm(cost,ec.buyFixed,ec.buyPct,ec.buyMin,ec.buyMax);
 }
 function computeFlow(calc){
   let ci=0,co=0;
@@ -743,7 +860,7 @@ function rebalance(assetList,cash,pol){
     if(a.dq<-1e-9){const q=Math.abs(a.dq);return s+q*Math.max(0,a.price-a.avgCost)*(a.taxRate/100);}
     return s;},0);
   const cBuy=c.reduce((s,a)=>{
-    if(a.dq>1e-9){const cost=a.dq*a.price;return s+calcComm(cost,a.buyFixed,a.buyPct,a.buyMin,a.buyMax);}
+    if(a.dq>1e-9){const ec=effectiveComm(a);const cost=a.dq*a.price;return s+calcComm(cost,ec.buyFixed,ec.buyPct,ec.buyMin,ec.buyMax);}
     return s;},0);
   const cSell=c.reduce((s,a)=>{
     if(a.dq<-1e-9){const q=Math.abs(a.dq),g=q*a.price,tx=q*Math.max(0,a.price-a.avgCost)*(a.taxRate/100);return s+g-tx-cashIn(a,q);}
@@ -842,6 +959,156 @@ function renderResults(r){
   document.getElementById('disclaimer').textContent=t('msg_disclaimer');
 }
 
+// ── COMMISSION PROFILES ────────────────────────────────────────────────
+
+function genProfileId(){return 'p_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);}
+
+function getProfileById(id){return commProfiles.find(p=>p.id===id)||null;}
+
+function effectiveComm(asset){
+  if(asset.profileId){
+    const p=getProfileById(asset.profileId);
+    if(p)return p;
+  }
+  return asset; // falls back to asset's own fields
+}
+
+function startAddProfile(){
+  editingProfileIndex=null;
+  clearProfileForm();
+  document.getElementById('profile-form').classList.remove('hidden');
+  document.getElementById('btn-save-profile').textContent=t('btn_save_profile');
+  document.getElementById('pf-name').focus();
+}
+
+function startEditProfile(idx){
+  editingProfileIndex=idx;
+  const p=commProfiles[idx];
+  document.getElementById('pf-name').value=p.name;
+  document.getElementById('pf-buy-fixed').value=p.buyFixed;
+  document.getElementById('pf-buy-pct').value=p.buyPct;
+  document.getElementById('pf-buy-min').value=p.buyMin;
+  document.getElementById('pf-buy-max').value=p.buyMax;
+  document.getElementById('pf-sell-fixed').value=p.sellFixed;
+  document.getElementById('pf-sell-pct').value=p.sellPct;
+  document.getElementById('pf-sell-min').value=p.sellMin;
+  document.getElementById('pf-sell-max').value=p.sellMax;
+  document.getElementById('profile-form').classList.remove('hidden');
+  document.getElementById('pf-name').scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+function cancelProfileEdit(){
+  editingProfileIndex=null;
+  clearProfileForm();
+  document.getElementById('profile-form').classList.add('hidden');
+}
+
+function clearProfileForm(){
+  document.getElementById('pf-name').value='';
+  ['pf-buy-fixed','pf-buy-pct','pf-buy-min','pf-buy-max',
+   'pf-sell-fixed','pf-sell-pct','pf-sell-min','pf-sell-max'].forEach(id=>document.getElementById(id).value='0');
+  document.getElementById('profile-form-error').classList.add('hidden');
+}
+
+function showProfileFormError(msg){
+  const el=document.getElementById('profile-form-error');
+  el.textContent=msg; el.classList.remove('hidden');
+}
+
+function saveProfile(){
+  const name=document.getElementById('pf-name').value.trim();
+  if(!name)return showProfileFormError(t('err_profile_name'));
+  const dupIdx=commProfiles.findIndex((p,i)=>p.name===name&&i!==editingProfileIndex);
+  if(dupIdx>=0)return showProfileFormError(t('err_profile_dup'));
+
+  const data={
+    name,
+    buyFixed:parseFloat(document.getElementById('pf-buy-fixed').value)||0,
+    buyPct:parseFloat(document.getElementById('pf-buy-pct').value)||0,
+    buyMin:parseFloat(document.getElementById('pf-buy-min').value)||0,
+    buyMax:parseFloat(document.getElementById('pf-buy-max').value)||0,
+    sellFixed:parseFloat(document.getElementById('pf-sell-fixed').value)||0,
+    sellPct:parseFloat(document.getElementById('pf-sell-pct').value)||0,
+    sellMin:parseFloat(document.getElementById('pf-sell-min').value)||0,
+    sellMax:parseFloat(document.getElementById('pf-sell-max').value)||0,
+  };
+
+  if(editingProfileIndex!==null){
+    const existingId=commProfiles[editingProfileIndex].id;
+    commProfiles[editingProfileIndex]={id:existingId,...data};
+    toast(`"${name}" updated`,'success');
+  }else{
+    commProfiles.push({id:genProfileId(),...data});
+    toast(`"${name}" created`,'success');
+  }
+
+  editingProfileIndex=null;
+  clearProfileForm();
+  document.getElementById('profile-form').classList.add('hidden');
+  renderProfileList();
+  refreshProfileSelects();
+  lastResult=null;
+}
+
+function deleteProfile(idx){
+  const id=commProfiles[idx].id;
+  const name=commProfiles[idx].name;
+  // Unassign from assets that used this profile
+  assets.forEach(a=>{if(a.profileId===id)a.profileId=null;});
+  commProfiles.splice(idx,1);
+  renderProfileList();
+  refreshProfileSelects();
+  renderAssets();
+  lastResult=null;
+  toast(`"${name}" deleted`,'success');
+}
+
+function fmtCommSummary(p){
+  const parts=[];
+  if(p.buyFixed>0||p.buyPct>0)parts.push(`Buy: €${p.buyFixed}+${p.buyPct}%`);
+  if(p.sellFixed>0||p.sellPct>0)parts.push(`Sell: €${p.sellFixed}+${p.sellPct}%`);
+  return parts.length?parts.join(' | '):'No fees';
+}
+
+function renderProfileList(){
+  const el=document.getElementById('profile-list');
+  if(commProfiles.length===0){
+    el.innerHTML=`<div class="text-muted text-sm" id="no-profiles-msg">${t('no_profiles')}</div>`;
+    return;
+  }
+  el.innerHTML=commProfiles.map((p,i)=>`
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:8px">
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:13px;color:var(--accent);margin-bottom:2px">${p.name}</div>
+        <div style="font-size:11px;color:var(--text-muted)">${fmtCommSummary(p)}</div>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted)">
+        ${assets.filter(a=>a.profileId===p.id).length} asset(s)
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="startEditProfile(${i})">✏️</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteProfile(${i})">🗑️</button>
+    </div>`).join('');
+}
+
+// Rebuild the <select> options in the asset form
+function refreshProfileSelects(){
+  const sel=document.getElementById('f-profile-select');
+  if(!sel)return;
+  const currentVal=sel.value;
+  sel.innerHTML=`<option value="">${t('l_no_profile')}</option>`
+    +commProfiles.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  // restore selection if still valid
+  if(currentVal&&commProfiles.find(p=>p.id===currentVal))sel.value=currentVal;
+  onProfileSelectChange();
+}
+
+function onProfileSelectChange(){
+  const profileId=document.getElementById('f-profile-select').value;
+  const customWrap=document.getElementById('f-custom-comm-wrap');
+  // Show custom fields only when no profile selected
+  customWrap.classList.toggle('hidden', profileId!=='');
+}
+
 // ── SETTINGS ───────────────────────────────────────────────────────────
 function toggleRounding(){
   applyRounding=document.getElementById('applyRounding').checked;
@@ -868,6 +1135,7 @@ function toast(msg,type='success'){
 // ── INIT ───────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded',()=>{
   renderAssets();refreshText();updateRoundingInfo();
+  renderProfileList();refreshProfileSelects();
 });
 </script>
 </body>
