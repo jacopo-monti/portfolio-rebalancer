@@ -1,4 +1,0 @@
-# System-level dependencies for Hugging Face Spaces
-# Required for openpyxl XML processing capabilities
-libxml2-dev
-libxslt-dev
