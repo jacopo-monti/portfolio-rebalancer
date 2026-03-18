@@ -150,6 +150,42 @@ tbody td{padding:9px 12px;font-size:13px;white-space:nowrap;font-family:var(--mo
   .asset-meta{grid-template-columns:repeat(2,1fr)}
   .metrics-row{grid-template-columns:1fr 1fr}
 }
+/* ── TICKER AUTOCOMPLETE ── */
+.ac-wrap{position:relative}
+.ac-dropdown{
+  position:absolute;top:calc(100% + 4px);left:0;right:0;
+  background:var(--surface);border:1px solid var(--border-light);
+  border-radius:var(--radius-sm);z-index:200;
+  max-height:260px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.4);
+  display:none;
+}
+.ac-dropdown.open{display:block}
+.ac-item{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 12px;cursor:pointer;transition:background .1s;
+  border-bottom:1px solid var(--border);
+}
+.ac-item:last-child{border-bottom:none}
+.ac-item:hover,.ac-item.selected{background:var(--surface2)}
+.ac-ticker{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent);min-width:70px}
+.ac-name{font-size:12px;color:var(--text-dim);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ac-exchange{font-size:10px;color:var(--text-muted);background:var(--surface2);padding:2px 6px;border-radius:3px;white-space:nowrap}
+.ac-loading{padding:12px;text-align:center;color:var(--text-muted);font-size:12px}
+.ac-error{padding:12px;text-align:center;color:var(--warning);font-size:12px}
+/* Price fetch status next to price field */
+.price-row{display:flex;align-items:flex-end;gap:8px}
+.price-row .form-group{flex:1}
+.price-fetch-btn{
+  flex-shrink:0;height:38px;padding:0 12px;
+  background:var(--accent-dim);border:1px solid rgba(79,255,176,.25);
+  color:var(--accent);border-radius:var(--radius-sm);cursor:pointer;
+  font-size:12px;font-family:var(--sans);font-weight:500;
+  transition:all .15s;white-space:nowrap;
+  display:flex;align-items:center;gap:5px;
+}
+.price-fetch-btn:hover{background:rgba(79,255,176,.2)}
+.price-fetch-btn:disabled{opacity:.4;cursor:not-allowed}
+.price-status{font-size:11px;margin-top:4px;min-height:16px;font-family:var(--mono)}
 </style>
 </head>
 <body>
@@ -193,9 +229,29 @@ tbody td{padding:9px 12px;font-size:13px;white-space:nowrap;font-family:var(--mo
     <div class="card">
       <div class="sub-title" id="l-basic-info">Basic Information</div>
       <div class="grid-3 mb-16">
-        <div class="form-group"><label class="form-label" id="l-sym">Asset Symbol/Name *</label><input class="form-input" id="f-symbol" placeholder="e.g. VWCE"></div>
+        <!-- Ticker autocomplete -->
+        <div class="form-group">
+          <label class="form-label" id="l-sym">Asset Symbol/Name *</label>
+          <div class="ac-wrap">
+            <input class="form-input" id="f-symbol" placeholder="e.g. VWCE" autocomplete="off"
+              oninput="onSymbolInput()" onkeydown="onSymbolKeydown(event)" onblur="onSymbolBlur()">
+            <div class="ac-dropdown" id="ac-dropdown"></div>
+          </div>
+        </div>
         <div class="form-group"><label class="form-label" id="l-qty">Quantity (shares) *</label><input class="form-input" id="f-quantity" type="number" value="0" min="0" step="0.0001"></div>
-        <div class="form-group"><label class="form-label" id="l-price">Current Price (€) *</label><input class="form-input" id="f-price" type="number" value="100" min="0.01" step="0.01"></div>
+        <!-- Price + fetch button -->
+        <div class="form-group">
+          <label class="form-label" id="l-price">Current Price (€) *</label>
+          <div class="price-row">
+            <div class="form-group" style="margin:0">
+              <input class="form-input" id="f-price" type="number" value="100" min="0.01" step="0.01">
+            </div>
+            <button class="price-fetch-btn" id="price-fetch-btn" onclick="fetchPrice()" title="Fetch live price" disabled>
+              <span id="price-fetch-icon">↻</span> <span id="price-fetch-label">Live</span>
+            </button>
+          </div>
+          <div class="price-status" id="price-status"></div>
+        </div>
       </div>
       <div class="grid-3 mb-16">
         <div class="form-group"><label class="form-label" id="l-avg">Average Cost (€) *</label><input class="form-input" id="f-avgcost" type="number" value="100" min="0" step="0.01"></div>
@@ -483,6 +539,11 @@ en:{
   ok_added:'Asset "{0}" added!',ok_updated:'Asset "{0}" updated!',ok_deleted:'Asset "{0}" deleted',
   ok_profile_updated:'Profile "{0}" updated',ok_profile_created:'Profile "{0}" created',ok_profile_deleted:'Profile "{0}" deleted',
   lbl_comm_label:'Comm.',lbl_profile_assets:'asset(s)',
+  lbl_refresh_price:'Refresh live price',
+  lbl_price_live:'Live',lbl_price_fetching:'…',
+  msg_price_updated:'Price updated: {0}',msg_price_error:'Could not fetch price',
+  msg_price_disclaimer:'Prices from Yahoo Finance · delayed ~15 min',
+  ac_searching:'Searching…',ac_no_results:'No results found',ac_error:'Search unavailable',
   // Commission profiles
   t_profiles_title:'Commission Profiles',
   t_profiles_desc:'Define reusable commission structures. Assign a profile to each asset, or set custom commissions per asset.',
@@ -580,6 +641,11 @@ it:{
   ok_added:'Asset "{0}" aggiunto!',ok_updated:'Asset "{0}" aggiornato!',ok_deleted:'Asset "{0}" eliminato',
   ok_profile_updated:'Profilo "{0}" aggiornato',ok_profile_created:'Profilo "{0}" creato',ok_profile_deleted:'Profilo "{0}" eliminato',
   lbl_comm_label:'Comm.',lbl_profile_assets:'asset',
+  lbl_refresh_price:'Aggiorna prezzo live',
+  lbl_price_live:'Live',lbl_price_fetching:'…',
+  msg_price_updated:'Prezzo aggiornato: {0}',msg_price_error:'Impossibile recuperare il prezzo',
+  msg_price_disclaimer:'Prezzi da Yahoo Finance · ritardo ~15 min',
+  ac_searching:'Ricerca…',ac_no_results:'Nessun risultato',ac_error:'Ricerca non disponibile',
   // Commission profiles
   t_profiles_title:'Profili Commissionali',
   t_profiles_desc:'Definisci strutture commissionali riutilizzabili. Assegna un profilo a ogni asset, oppure imposta commissioni personalizzate per singolo asset.',
@@ -767,6 +833,11 @@ function resetForm(){
   if(sel)sel.value='';
   const cw=document.getElementById('f-custom-comm-wrap');
   if(cw)cw.classList.remove('hidden');
+  // Reset autocomplete state
+  acSelectedTicker=null;
+  closeDropdown();
+  setPriceFetchEnabled(false);
+  setPriceStatus('');
 }
 function editAsset(i){
   editingIndex=i;const a=assets[i];
@@ -785,6 +856,9 @@ function editAsset(i){
   document.getElementById('form-title').textContent=t('form_edit');
   document.getElementById('addAssetBtn').textContent=t('btn_update');
   document.getElementById('cancelEditBtn').classList.remove('hidden');
+  // Enable live price fetch for the pre-filled symbol
+  acSelectedTicker = {symbol: a.symbol};
+  setPriceFetchEnabled(true);
   document.querySelector('.section-title').scrollIntoView({behavior:'smooth'});
 }
 function cancelEdit(){
@@ -827,6 +901,7 @@ function renderAssets(){
         <div class="asset-meta-item"><div class="asset-meta-label">${t('lbl_comm_label')}</div><div class="asset-meta-value">${commBadge(a)}</div></div>
       </div>
       <div class="asset-actions">
+        <button class="btn btn-secondary btn-sm" onclick="refreshAssetPrice(${i})" title="${t('lbl_refresh_price')}" id="rprice-${i}">↻</button>
         <button class="btn btn-secondary btn-sm" onclick="editAsset(${i})">${t('lbl_edit')}</button>
         <button class="btn btn-danger btn-sm" onclick="deleteAsset(${i})">${t('lbl_delete')}</button>
       </div>
@@ -1010,7 +1085,194 @@ function renderResults(r){
   document.getElementById('disclaimer').textContent=t('msg_disclaimer');
 }
 
-// ── COMMISSION PROFILES ────────────────────────────────────────────────
+// ── TICKER AUTOCOMPLETE + LIVE PRICE ───────────────────────────────────
+
+let acSelectedTicker = null;
+let acSearchTimer = null;
+let acCurrentIndex = -1;
+let acResults = [];
+
+async function searchTicker(query){
+  const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=8&newsCount=0&enableFuzzyQuery=true&enableNavLinks=false`;
+  const res = await fetch(url, {headers:{'Accept':'application/json'}});
+  if(!res.ok) throw new Error('Network error');
+  const data = await res.json();
+  return (data.quotes||[]).filter(q=>q.symbol&&q.quoteType&&['EQUITY','ETF','MUTUALFUND','INDEX','CURRENCY'].includes(q.quoteType));
+}
+
+async function fetchQuote(symbol){
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`;
+  const res = await fetch(url, {headers:{'Accept':'application/json'}});
+  if(!res.ok) throw new Error('Network error');
+  const data = await res.json();
+  const meta = data?.chart?.result?.[0]?.meta;
+  if(!meta) throw new Error('No data');
+  const price = meta.regularMarketPrice || meta.previousClose || meta.chartPreviousClose;
+  const currency = meta.currency || '';
+  if(!price) throw new Error('No price');
+  return {price, currency, symbol: meta.symbol};
+}
+
+// ── AUTOCOMPLETE UI ────────────────────────────────────────────────────
+
+function openDropdown(html){
+  const dd = document.getElementById('ac-dropdown');
+  dd.innerHTML = html;
+  dd.classList.add('open');
+  acCurrentIndex = -1;
+}
+function closeDropdown(){
+  document.getElementById('ac-dropdown').classList.remove('open');
+  acResults = [];
+  acCurrentIndex = -1;
+}
+
+function onSymbolInput(){
+  const val = document.getElementById('f-symbol').value.trim();
+  acSelectedTicker = null;
+  setPriceFetchEnabled(false);
+  clearTimeout(acSearchTimer);
+  if(val.length < 1){ closeDropdown(); return; }
+  openDropdown(`<div class="ac-loading">${t('ac_searching')}</div>`);
+  acSearchTimer = setTimeout(()=>runSearch(val), 350);
+}
+
+async function runSearch(query){
+  try{
+    const results = await searchTicker(query);
+    acResults = results;
+    if(results.length === 0){
+      openDropdown(`<div class="ac-error">${t('ac_no_results')}</div>`);
+      return;
+    }
+    openDropdown(results.map((r,i)=>`
+      <div class="ac-item" data-i="${i}" onmousedown="pickResult(${i})">
+        <span class="ac-ticker">${r.symbol}</span>
+        <span class="ac-name">${r.shortname||r.longname||''}</span>
+        <span class="ac-exchange">${r.exchDisp||r.exchange||''}</span>
+      </div>`).join(''));
+  }catch(e){
+    openDropdown(`<div class="ac-error">${t('ac_error')}</div>`);
+  }
+}
+
+function pickResult(i){
+  const r = acResults[i];
+  if(!r) return;
+  acSelectedTicker = r;
+  document.getElementById('f-symbol').value = r.symbol;
+  closeDropdown();
+  setPriceFetchEnabled(true);
+  // Auto-fetch price immediately after picking
+  fetchPrice();
+}
+
+function onSymbolBlur(){
+  // Delay so mousedown on item fires first
+  setTimeout(closeDropdown, 200);
+}
+
+function onSymbolKeydown(e){
+  const dd = document.getElementById('ac-dropdown');
+  const items = dd.querySelectorAll('.ac-item');
+  if(!dd.classList.contains('open')) return;
+  if(e.key==='ArrowDown'){
+    e.preventDefault();
+    acCurrentIndex = Math.min(acCurrentIndex+1, items.length-1);
+    highlightAcItem(items);
+  } else if(e.key==='ArrowUp'){
+    e.preventDefault();
+    acCurrentIndex = Math.max(acCurrentIndex-1, 0);
+    highlightAcItem(items);
+  } else if(e.key==='Enter'&&acCurrentIndex>=0){
+    e.preventDefault();
+    pickResult(acCurrentIndex);
+  } else if(e.key==='Escape'){
+    closeDropdown();
+  }
+}
+
+function highlightAcItem(items){
+  items.forEach((el,i)=>el.classList.toggle('selected', i===acCurrentIndex));
+  if(items[acCurrentIndex]) items[acCurrentIndex].scrollIntoView({block:'nearest'});
+}
+
+// ── PRICE FETCH ────────────────────────────────────────────────────────
+
+function setPriceFetchEnabled(on){
+  const btn = document.getElementById('price-fetch-btn');
+  if(btn) btn.disabled = !on;
+}
+
+function setFetchingUI(loading){
+  const icon = document.getElementById('price-fetch-icon');
+  const label = document.getElementById('price-fetch-label');
+  const btn = document.getElementById('price-fetch-btn');
+  if(loading){
+    if(icon) icon.textContent = '…';
+    if(label) label.textContent = '';
+    if(btn){ btn.disabled = true; btn.style.opacity = '.6'; }
+  } else {
+    if(icon) icon.textContent = '↻';
+    if(label) label.textContent = t('lbl_price_live');
+    if(btn){ btn.disabled = false; btn.style.opacity = '1'; }
+  }
+}
+
+function setPriceStatus(msg, color='var(--text-muted)'){
+  const el = document.getElementById('price-status');
+  if(el){ el.textContent = msg; el.style.color = color; }
+}
+
+async function fetchPrice(){
+  const sym = acSelectedTicker?.symbol || document.getElementById('f-symbol').value.trim();
+  if(!sym){ setPriceStatus(t('msg_price_error'), 'var(--danger)'); return; }
+  setFetchingUI(true);
+  setPriceStatus('');
+  try{
+    const {price, currency, symbol} = await fetchQuote(sym);
+    document.getElementById('f-price').value = price.toFixed(4);
+    const currLabel = currency ? ` ${currency}` : '';
+    setPriceStatus(`${symbol} · ${price.toFixed(2)}${currLabel} · ${t('msg_price_disclaimer')}`, 'var(--text-muted)');
+    toast(t('msg_price_updated', `${price.toFixed(2)}${currLabel}`), 'success');
+  }catch(e){
+    setPriceStatus(t('msg_price_error'), 'var(--danger)');
+    toast(t('msg_price_error'), 'error');
+  }finally{
+    setFetchingUI(false);
+    setPriceFetchEnabled(true);
+  }
+}
+
+// Refresh price for an existing asset in the portfolio list
+async function refreshAssetPrice(i){
+  const a = assets[i];
+  const btn = document.getElementById(`rprice-${i}`);
+  if(btn){ btn.textContent = '…'; btn.disabled = true; }
+  try{
+    const {price, currency} = await fetchQuote(a.symbol);
+    assets[i].price = price;
+    lastResult = null;
+    renderAssets();
+    updateAnalysisWarning();
+    const currLabel = currency ? ` ${currency}` : '';
+    toast(t('msg_price_updated', `${a.symbol} ${price.toFixed(2)}${currLabel}`), 'success');
+  }catch(e){
+    toast(`${a.symbol}: ${t('msg_price_error')}`, 'error');
+    if(btn){ btn.textContent = '↻'; btn.disabled = false; }
+  }
+}
+
+// When editing an existing asset, enable the fetch button if symbol is set
+function maybeEnableFetchBtn(){
+  const sym = document.getElementById('f-symbol').value.trim();
+  setPriceFetchEnabled(sym.length > 0);
+  // Also update label
+  const label = document.getElementById('price-fetch-label');
+  if(label) label.textContent = t('lbl_price_live');
+}
+
+
 
 function genProfileId(){return 'p_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);}
 
